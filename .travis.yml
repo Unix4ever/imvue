@@ -1,0 +1,21 @@
+language: cpp
+python:
+- '3.6'
+matrix:
+  include:
+  - compiler: gcc
+    dist: xenial
+    sudo: required
+    addons:
+      apt:
+        packages:
+        - cmake
+        - gcc
+        - g++
+        - liblua5.1-0-dev
+        - cppcheck
+        - valgrind
+install:
+  - ./scripts/install_gtest.sh
+script:
+  - make ci

@@ -1,0 +1,55 @@
+<template>
+  <window :name="self.title">
+    <text-unformatted>Render slot</text-unformatted>
+    <slot/>
+    <separator/>
+    <!-- nested component -->
+    <list-item v-for="value, index in self.items" :key="index" :value="value"/>
+  </window>
+</template>
+
+<script>
+local ListItem = require "components.list-item"
+
+return {
+  strs = {
+    "first",
+    "second",
+    "third",
+    "fourth",
+    "fifth",
+    "sixth",
+    "seventh",
+    "eigth",
+  },
+  components = {
+    -- mounting nested component
+    ListItem
+  },
+  props = {
+    title = {
+      type = ImVue_String,
+      default = "single file template"
+    },
+    count = {
+      type = ImVue_Integer,
+      default = 1
+    }
+  },
+  mounted = function(self)
+    self:populate()
+  end,
+  updated = function(self)
+    self:populate()
+  end,
+  populate = function(self)
+    self.items[self.count] = self.strs[self.count] or tostring(self.count)
+  end,
+  data = function(self)
+    return {
+      value = 'works',
+      items = {}
+    }
+  end
+}
+</script>

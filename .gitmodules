@@ -1,0 +1,9 @@
+[submodule "imgui"]
+	path = imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "nanosvg"]
+	path = nanosvg
+	url = https://github.com/memononen/nanosvg.git
+[submodule "katana-parser"]
+	path = katana-parser
+	url = https://github.com/hackers-painters/katana-parser.git

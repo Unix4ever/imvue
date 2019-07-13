@@ -1,0 +1,173 @@
+---
+blacklist:
+  - ^(Get|Set|Show|Is|Add|Open|Style|Push|Pop|Calc|Log|Accept|ColorConvert|Load|Save|Destroy|ListBox|Tree).*$
+  - ^(New|End)Frame$
+  - ^(Render|MemFree|MemAlloc|ImGuiStyle|ScaleAllSizes|ClearInputCharacters|ImGuiIO|ImGuiInputTextCallbackData|Draw|Build|PassFilter|ImGuiTextFilter|IsActive|split|BuildSortByKey|Step|Value|CheckboxFlags|TreePop|DebugCheckVersionAndDataLayout|CreateContext|CloseCurrentPopup|ResetMouseDragDelta|CaptureMouseFromApp|CaptureKeyboardFromApp|CollapsingHeader)$
+  - ^(Delete|Insert)Chars$
+  - ^(append).*$
+  - ^(\w+)ScalarN?$
+  - ^(\w+)V$
+# rewrite classes names
+rewrites:
+  Combo: ComboItem
+rules:
+  label: from_text
+  text: from_text
+elements_rules:
+  Menu:
+    required_fields:
+      - label
+  Window:
+    required_fields:
+      - name
+  MenuBar:
+    required_fields:
+      - flags
+  InvisibleButton:
+    required_fields:
+      - size
+      - str_id
+  Combo:
+    required_fields:
+      - label
+  Checkbox:
+    required_fields:
+      - label
+  InputTextWithHint:
+    required_fields:
+      - label
+  ListBoxHeader:
+    required_fields:
+      - size
+  ColorEdit3:
+    required_fields:
+      - label
+      - col
+    test_values:
+      col: 1.0,1.0,1.0
+  ColorEdit4:
+    required_fields:
+      - label
+      - col
+    test_values:
+      col: 1.0,1.0,1.0,1.0
+  SmallButton:
+    required_fields:
+      - label
+  Button:
+    required_fields:
+      - label
+  RadioButton:
+    required_fields:
+      - label
+  Child:
+    required_fields:
+      - str_id
+  InputScalarN:
+    required_fields:
+      - label
+  TabItem:
+    wrapped_by: TabBar
+    required_fields:
+      - label
+  TabBar:
+    required_fields:
+      - str_id
+  ColorPicker4:
+    required_fields:
+      - col
+    test_values:
+      col: 1,1,1,1
+  ColorPicker3:
+    required_fields:
+      - col
+    test_values:
+      col: 1,1,1
+  ColorButton:
+    required_fields:
+      - col
+      - desc_id
+    test_values:
+      col: 1,1,1,1
+  ChildFrame:
+    required_fields:
+      - id
+  InputInt2:
+    required_fields:
+      - label
+      - v
+    test_values:
+      v: 0,0
+  InputInt3:
+    required_fields:
+      - label
+      - v
+    test_values:
+      v: 0,0,0
+  InputInt4:
+    required_fields:
+      - label
+      - v
+    test_values:
+      v: 0,0,0,0
+  PopupModal:
+    required_fields:
+      - name
+  ArrowButton:
+    required_fields:
+      - str_id
+      - dir
+    test_values:
+      dir: 0
+  DragFloatRange2:
+    required_fields:
+      - label
+      - v_current_min
+      - v_current_max
+    test_values:
+      v_current_min: 0
+      v_current_max: 1
+  SliderAngle:
+    required_fields:
+      - label
+      - v_rad
+    test_values:
+      v_rad: 0
+  DragFloat:
+    required_fields:
+      - label
+      - v
+    test_values:
+      v: 0
+  InputFloat:
+    required_fields:
+      - label
+      - v
+    test_values:
+      v: 0
+  InputDouble:
+    required_fields:
+      - label
+      - v
+    test_values:
+      v: 0
+  VSliderFloat:
+    required_fields:
+      - label
+      - v
+    test_values:
+      p_data: 1
+  SliderFloat:
+    required_fields:
+      - label
+      - v
+    test_values:
+      p_data: 1
+
+# test generator config section
+test_values_by_type:
+  char*: test
+  int: 0
+  float: 0.1
+  ImVec2: 20.0,10.0
+  ImVec4: 1.0,1.0,1.0,1.0

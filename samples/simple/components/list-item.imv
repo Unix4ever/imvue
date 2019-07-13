@@ -1,0 +1,14 @@
+<template>
+  <selectable>{{self.value}}</selectable>
+</template>
+
+<script>
+return {
+  props = {
+    value = {
+      type = ImVue_String,
+      required = true
+    }
+  }
+}
+</script>

@@ -1,0 +1,39 @@
+<template>
+  <window name="root">
+    <button v-on:click="self.count = self.count + 1">increase counter</button>
+    <text-unformatted>current count {{ self.count }}</text-unformatted>
+  </window>
+  <template v-if="widget == 'basic'">
+    <widget :count="self.count"/>
+  </template>
+  <template v-else-if="widget == 'lifecycle'">
+    <lifecycle :count="self.count"/>
+  </template>
+  <template v-else-if="widget == 'props'">
+    <template v-if="val ~= nil">
+      <props :value="val"/>
+    </template>
+    <template v-else="">
+      <props/>
+    </template>
+  </template>
+</template>
+
+<script>
+  Widget = require(widget)
+
+  -- storing the document state in global variable to expose it to tests
+  -- don't do that in production
+  state = ImVue.new({
+    components = {
+      Widget
+    },
+    data = function(self)
+      return {
+        count = 1
+      }
+    end
+  })
+
+  return state
+</script>

@@ -1,0 +1,27 @@
+<template>
+  <window name="root">
+    <button v-on:click="self.count = self.count + 1">increase counter</button>
+    <text-unformatted>current count {{ self.count }}</text-unformatted>
+  </window>
+  <widget :count="self.count"/>
+  <singlefile :count="self.count">
+    <button>{{ self.slotted }}</button>
+  </singlefile>
+</template>
+
+<script>
+  Widget = require 'components.widget'
+  SingleFile = require 'components.singlefile'
+  return ImVue.new({
+    components = {
+      Widget,
+      SingleFile
+    },
+    data = function()
+      return {
+        count = 1,
+        slotted = 'value from parent'
+      }
+    end
+  })
+</script>
