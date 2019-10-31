@@ -1,0 +1,41 @@
+<template>
+  <window name="demo">
+    <button v-on:mouseover="self.showTooltip = true" v-on:mouseout="self.showTooltip = false">right click</button>
+    <tooltip v-if="self.showTooltip">
+      <text-unformatted>information for you</text-unformatted>
+    </tooltip>
+    <!-- various types parsing -->
+    <color-button desc-id="strings" size="20,20" col="0.6,0.9,0.6,1.0"/>
+    <!-- reading from Lua -->
+    <color-button desc-id="lua" :size="{20,20}" :col="{0.6,0.9,0.6,1.0}"/>
+    <!-- template engine {{}} -->
+    <text-unformatted>Button was clicked {{self.counter}} times.</text-unformatted>
+    <progress-bar :fraction="self.progress"/>
+    <!-- click handler -->
+    <button v-on:click="self:testing()">add more elements</button>
+    <same-line/>
+    <button v-on:click="self.values = {}">clear list</button>
+    <text-unformatted>Dynamic list</text-unformatted>
+    <!-- loops -->
+    <selectable v-for="(value, index) in self.values" v-on:click="self.selected = index" :selected="index == self.selected">{{value}}</selectable>
+    <!-- define references, similar to Vue.js $refs -->
+    <input-text buf-size="512" ref="input" v-on:keypress.enter="self:runScript()">console</input-text>
+    <button v-on:click="self:runScript()">run script</button>
+    <text-unformatted>submitted input: {{ if self.inputText then return self.inputText else return 'none' end}}</text-unformatted>
+  </window>
+
+  <main-menu-bar>
+    <!-- nested loops also supported -->
+    <menu v-for="menu in self.menu" :label="menu.label">
+      <menu-item v-for="item in menu.items" v-on:click="item.handler()">{{item.label}}</menu-item>
+    </menu>
+    <menu v-if="self.mode" :label="self.mode"/>
+  </main-menu-bar>
+
+  <!-- conditional rendering -->
+  <window name="another window" v-if="self.counter >= 5">
+    <text-unformatted>Yamete kudasai senpai!</text-unformatted>
+  </window>
+</template>
+
+<script src="simple.lua"/>

@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+build
+tools/env
+tools/__pycache__
+*.pyc
+imgui.ini

@@ -1,0 +1,103 @@
+<template>
+  <selectable>{{tostring(self.value)}}</selectable>
+</template>
+
+<script>
+local props = {
+  defValid = {
+    value = {
+      type = ImVue_String,
+      default = 'hello'
+    }
+  },
+  defRequired = {
+    value = {
+      type = ImVue_String,
+      required = true,
+      default = 'hello'
+    }
+  },
+  defWrongType = {
+    value = {
+      type = ImVue_String,
+      default = 1
+    }
+  },
+  defValidationFail = {
+    value = {
+      validator = function()
+        return false
+      end,
+      default = 1
+    }
+  },
+  defValidationSuccess = {
+    value = {
+      validator = function(val)
+        return val > 0
+      end,
+      default = 1
+    }
+  },
+
+  validateShortest = {
+    'value'
+  },
+
+  validateString = {
+    value = {
+      type = ImVue_String,
+      default = 'unset'
+    }
+  },
+
+  validateArray = {
+    value = {
+      type = ImVue_Array,
+    }
+  },
+
+  validateObject = {
+    value = {
+      type = ImVue_Object,
+    }
+  },
+
+  validateBool = {
+    value = {
+      type = ImVue_Bool,
+    }
+  },
+
+  validateRequired = {
+    value = {
+      type = ImVue_String,
+      required = true
+    }
+  },
+
+  validateTypeList = {
+    value = {
+      type = {ImVue_String, ImVue_Number}
+    }
+  },
+
+  validateCallback = {
+    value = {
+      validator = function(input)
+        return input > 0
+      end
+    }
+  }
+}
+
+local case = props[propsValidationTestCase]
+if not case then
+  error("case " .. propsValidationTestCase .. " not found")
+  return nil
+end
+
+return {
+  props = case
+}
+</script>
