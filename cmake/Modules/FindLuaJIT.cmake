@@ -44,7 +44,7 @@ FIND_PATH(LUA_INCLUDE_DIR lua.h
 )
 
 FIND_LIBRARY(LUA_LIBRARY
-  NAMES luajit-51 luajit-5.1 luajit
+  NAMES libluajit-static.a  luajit-51 luajit-5.1 luajit
   HINTS
   $ENV{LUAJIT_DIR}
   PATH_SUFFIXES lib64 lib
@@ -60,7 +60,7 @@ FIND_LIBRARY(LUA_LIBRARY
 )
 
 FIND_LIBRARY(LUA_STATIC_LIBRARY
-  NAMES libluajit-51.a libluajit-5.1.a
+  NAMES libluajit-static.a libluajit-51.a libluajit-5.1.a
   HINTS
   $ENV{LUAJIT_DIR}
   PATH_SUFFIXES lib64 lib

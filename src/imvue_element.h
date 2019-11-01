@@ -569,10 +569,10 @@ namespace ImVue {
               }
 
               if(evaluation && std::strncmp(&str[i], "}}", 2) == 0) {
-                scriptState->eval(&ss.str()[0], &retval, fields, element->getContext());
+                Object object = scriptState->getObject(&ss.str()[0], fields, element->getContext());
                 ss = std::stringstream();
                 evaluation = false;
-                result << retval;
+                result << object.as<ImString>().c_str();
                 i++;
                 continue;
               }
@@ -714,10 +714,10 @@ namespace ImVue {
       typedef std::map<const char*, HandlerFactory*, CmpAttributeName> Handlers;
       Handlers mHandlers;
 
-      typedef std::vector<std::string> Inheritance;
+      typedef std::vector<ImString> Inheritance;
       Inheritance mInheritance;
 
-      std::string mTag;
+      ImString mTag;
   };
 
   /**
@@ -790,7 +790,7 @@ namespace ImVue {
         if(mTag == name) {
           return *this;
         }
-        mInheritance.push_back(name);
+        mInheritance.push_back(ImString(name));
         return *this;
       }
   };
@@ -869,24 +869,7 @@ namespace ImVue {
       }
 
     private:
-      void buildInheritance() {
-        mLayers.clear();
-        mDirty = false;
-
-        for(ElementBuilders::iterator iter = mElementBuilders.begin(); iter != mElementBuilders.end(); ++iter) {
-          int layer = iter->second->getLayer(this);
-          if(mLayers.count(layer) == 0) {
-            mLayers[layer] = ElementBuilders();
-          }
-          mLayers[layer][iter->first] = iter->second;
-        }
-
-        for(Layers::iterator iter = mLayers.begin(); iter != mLayers.end(); ++iter) {
-          for(ElementBuilders::iterator it = iter->second.begin(); it != iter->second.end(); ++it) {
-            it->second->readInheritance(this);
-          }
-        }
-      }
+      void buildInheritance();
 
       ElementBuilders mElementBuilders;
 

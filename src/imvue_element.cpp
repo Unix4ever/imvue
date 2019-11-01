@@ -780,7 +780,7 @@ namespace ImVue {
 
     int inheritedLayer = 0;
     for(Inheritance::iterator iter = mInheritance.begin(); iter != mInheritance.end(); ++iter) {
-      ElementBuilder* b = f->get((*iter).c_str());
+      ElementBuilder* b = f->get(iter->c_str());
       inheritedLayer = std::max(b->getLayer(f), inheritedLayer);
     }
 
@@ -789,7 +789,27 @@ namespace ImVue {
 
   void ElementBuilder::readInheritance(ElementFactory* f) {
     for(Inheritance::iterator iter = mInheritance.begin(); iter != mInheritance.end(); ++iter) {
-      merge(*f->get((*iter).c_str()));
+      merge(*f->get(iter->c_str()));
+    }
+  }
+
+  void ElementFactory::buildInheritance()
+  {
+    mLayers.clear();
+    mDirty = false;
+
+    for(ElementBuilders::iterator iter = mElementBuilders.begin(); iter != mElementBuilders.end(); ++iter) {
+      int layer = iter->second->getLayer(this);
+      if(mLayers.count(layer) == 0) {
+        mLayers[layer] = ElementBuilders();
+      }
+      mLayers[layer][iter->first] = iter->second;
+    }
+
+    for(Layers::iterator iter = mLayers.begin(); iter != mLayers.end(); ++iter) {
+      for(ElementBuilders::iterator it = iter->second.begin(); it != iter->second.end(); ++it) {
+        it->second->readInheritance(this);
+      }
     }
   }
 
