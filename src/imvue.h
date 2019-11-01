@@ -101,6 +101,8 @@ namespace ImVue {
 
     protected:
 
+      void destroy();
+
       virtual bool build();
 
       /**
@@ -119,10 +121,43 @@ namespace ImVue {
       char* mRawData;
       bool mMounted;
 
+      /**
+       * Override copy constructor and assignment
+       */
+      ComponentContainer& operator=(ComponentContainer& other)
+      {
+        if(mRefs != other.mRefs) {
+          destroy();
+        }
+
+        ComponentContainer tmp(other);
+        swap(*this, tmp);
+        return *this;
+      }
+
+      ComponentContainer(ComponentContainer& other)
+        : ContainerElement(other)
+        , mDocument(other.mDocument)
+        , mRawData(other.mRawData)
+        , mMounted(other.mMounted)
+        , mRefs(other.mRefs)
+      {
+        (*mRefs)++;
+      }
+
     private:
+
+      friend void swap(ComponentContainer& first, ComponentContainer& second) // nothrow
+      {
+        std::swap(first.mRefs, second.mRefs);
+        std::swap(first.mDocument, second.mDocument);
+        std::swap(first.mRawData, second.mRawData);
+        std::swap(first.mMounted, second.mMounted);
+      }
 
       typedef std::unordered_map<ImU32, ComponentFactory> ComponentFactories;
       ComponentFactories mComponents;
+      int* mRefs;
 
   };
 

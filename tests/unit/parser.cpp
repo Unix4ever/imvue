@@ -1,6 +1,7 @@
 
 #include <gtest/gtest.h>
 #include "imvue.h"
+#include "imvue_generated.h"
 #include "imvue_errors.h"
 #include "utils.h"
 
@@ -69,4 +70,24 @@ TEST(DocumentParser, BadScript)
   ImVue::Document document;
   document.parse(badScript);
   renderDocument(document);
+}
+
+/**
+ * Create document and copy it, should delete, ctx and other pointers only once
+ */
+TEST(DocumentParser, DocumentCopy)
+{
+  ImVue::Context* ctx = ImVue::createContext(
+      ImVue::createElementFactory()
+  );
+  ImVue::Document document(ctx);
+  document.parse(simple);
+  renderDocument(document);
+
+  ImVue::Document copied(document);
+  renderDocument(document);
+  renderDocument(copied);
+
+  ImVue::Document duplicate = document;
+  renderDocument(duplicate);
 }

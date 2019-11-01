@@ -1125,6 +1125,10 @@ extern "C" {
 
   void LuaScriptState::eval(const char* str, std::string* retval, Fields* fields, ScriptState::Context* ctx)
   {
+    if(!mImVue) {
+      return;
+    }
+
     StackGuard g(mLuaState);
     std::stringstream script;
     std::string data(str);
@@ -1180,7 +1184,7 @@ extern "C" {
   Object LuaScriptState::getObject(const char* str, Fields* fields, ScriptState::Context* ctx)
   {
     StackGuard g(mLuaState);
-    if(str[0] == '\0') {
+    if(str[0] == '\0' || !mImVue) {
       return Object();
     }
 

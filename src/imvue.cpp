@@ -92,11 +92,27 @@ namespace ImVue {
     : mDocument(0)
     , mRawData(NULL)
     , mMounted(false)
+    , mRefs((int*)ImGui::MemAlloc(sizeof(int)))
   {
+    *mRefs = 1;
   }
 
   ComponentContainer::~ComponentContainer()
   {
+    if((*mRefs) > 1) {
+      mChildren.clear();
+    }
+    destroy();
+  }
+
+  void ComponentContainer::destroy()
+  {
+    if(!mRefs || --(*mRefs) > 0) {
+      return;
+    }
+
+    ImGui::MemFree(mRefs);
+
     fireCallback(ScriptState::BEFORE_DESTROY);
     removeChildren();
 
