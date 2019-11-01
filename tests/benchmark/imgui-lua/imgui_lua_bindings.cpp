@@ -453,7 +453,18 @@ static void PushImguiEnums(lua_State* lState, const char* tableName) {
 
 void LoadImguiBindings(lua_State* L) {
   lua_newtable(L);
-  luaL_setfuncs(L, imguilib, 0);
+  int nup = 0;
+  const luaL_Reg* l = imguilib;
+  luaL_checkstack(L, nup+1, "too many upvalues");
+  for (; l->name != NULL; l++) {  /* fill the table with given functions */
+    int i;
+    lua_pushstring(L, l->name);
+    for (i = 0; i < nup; i++)  /* copy upvalues to the top */
+      lua_pushvalue(L, -(nup + 1));
+    lua_pushcclosure(L, l->func, nup);  /* closure with those upvalues */
+    lua_settable(L, -(nup + 3)); /* table must be below the upvalues, the name and the closure */
+  }
+  lua_pop(L, nup);  /* remove upvalues */
   PushImguiEnums(L, "constant");
   lua_setglobal(L, "imgui");
 }

@@ -30,10 +30,6 @@ SOFTWARE.
 struct lua_State;
 struct luaL_Reg;
 
-extern "C" {
-  void luaL_setfuncs(lua_State *L, const luaL_Reg* l, int nup);
-}
-
 namespace ImVue {
   class ImVue;
   class Element;
