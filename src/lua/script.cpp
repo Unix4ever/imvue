@@ -51,10 +51,13 @@ extern "C" {
 #define IMVUE_LUA_VERSION 502
 #endif // Lua Version 502, 501 || luajit, 500
 
+
+namespace ImVue {
+
 extern "C" {
 #ifndef lua_absindex
 #define lua_absindex(L, i)         ((i) > 0 || (i) <= LUA_REGISTRYINDEX ? (i) : \
-                                        lua_gettop(L) + (i) + 1)
+    lua_gettop(L) + (i) + 1)
 #endif
 
 #if IMVUE_LUA_VERSION > 501
@@ -64,32 +67,29 @@ extern "C" {
   IM_ASSERT(env != NULL && ImStricmp(env, "_ENV") == 0 && "failed to set up function environment");
 #endif
 
-#if defined(IMVUE_LUA_VERSION) && IMVUE_LUA_VERSION <= 501
-// backport of luaL_setfuncs
-void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
-  luaL_checkstack(L, nup+1, "too many upvalues");
-  for (; l->name != NULL; l++) {  /* fill the table with given functions */
-    int i;
-    lua_pushstring(L, l->name);
-    for (i = 0; i < nup; i++)  /* copy upvalues to the top */
-      lua_pushvalue(L, -(nup + 1));
-    lua_pushcclosure(L, l->func, nup);  /* closure with those upvalues */
-    lua_settable(L, -(nup + 3)); /* table must be below the upvalues, the name and the closure */
-  }
-  lua_pop(L, nup);  /* remove upvalues */
-}
-#endif
-}
-
-inline size_t lua_gettablesize(lua_State* L, int index) {
+  inline size_t lua_gettablesize(lua_State* L, int index) {
 #if IMVUE_LUA_VERSION < 502
     return lua_objlen(L, index);
 #else
     return lua_rawlen(L, index);
 #endif
+  }
+#if defined(IMVUE_LUA_VERSION) && IMVUE_LUA_VERSION <= 501
+  // backport of luaL_setfuncs
+  void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
+    luaL_checkstack(L, nup+1, "too many upvalues");
+    for (; l->name != NULL; l++) {  /* fill the table with given functions */
+      int i;
+      lua_pushstring(L, l->name);
+      for (i = 0; i < nup; i++)  /* copy upvalues to the top */
+        lua_pushvalue(L, -(nup + 1));
+      lua_pushcclosure(L, l->func, nup);  /* closure with those upvalues */
+      lua_settable(L, -(nup + 3)); /* table must be below the upvalues, the name and the closure */
+    }
+    lua_pop(L, nup);  /* remove upvalues */
+  }
+#endif
 }
-
-namespace ImVue {
 
   /**
    * Keeps stack consistent by cleaning up top
