@@ -13,9 +13,9 @@ option(IMVUE_USE_LUAJIT "use luajit" OFF)
 
 set(IMVUE_LUA_VERSION "5.1" CACHE STRING "")
 set(LIB_NAME "imvue")
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON) #...is required...
-set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
+endif(NOT CMAKE_CXX_STANDARD)
 
 include_directories(src)
 include_directories("${imvue_SOURCE_DIR}/imgui")
@@ -29,6 +29,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 if(BUILD_LUA_BINDINGS)
   if(IMVUE_USE_LUAJIT)
     find_package(LuaJIT ${IMVUE_LUA_VERSION} REQUIRED)
+    if(LUA_STATIC_LIBRARY)
+      set(LUA_LIBRARIES ${LUA_STATIC_LIBRARY})
+    endif(LUA_STATIC_LIBRARY)
   else(IMVUE_USE_LUAJIT)
     find_package(Lua ${IMVUE_LUA_VERSION} REQUIRED)
   endif(IMVUE_USE_LUAJIT)

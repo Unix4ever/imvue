@@ -112,12 +112,14 @@ namespace ImVue {
     FileSystem* fs;
     ComponentContainer* root;
     Context* parent;
+    // additional userdata that will be available from all the components
+    void* userdata;
   };
 
   /**
    * Create new context
    */
-  Context* createContext(ElementFactory* factory, ScriptState* script = 0, TextureManager* texture = 0, FileSystem* fs = 0);
+  Context* createContext(ElementFactory* factory, ScriptState* script = 0, TextureManager* texture = 0, FileSystem* fs = 0, void* userdata = 0);
 
   /**
    * Clone existing context

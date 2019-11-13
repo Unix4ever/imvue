@@ -83,7 +83,7 @@ namespace ImVue {
     }
   }
 
-  Context* createContext(ElementFactory* factory, ScriptState* script, TextureManager* texture, FileSystem* fs)
+  Context* createContext(ElementFactory* factory, ScriptState* script, TextureManager* texture, FileSystem* fs, void* userdata)
   {
     Context* ctx = new Context();
     memset(ctx, 0, sizeof(Context));
@@ -97,6 +97,7 @@ namespace ImVue {
     }
     ctx->fs = fs;
     ctx->script = script;
+    ctx->userdata = userdata;
     return ctx;
   }
 
@@ -106,7 +107,7 @@ namespace ImVue {
       script = ctx->script->clone();
     }
 
-    Context* child = createContext(ctx->factory, script, ctx->texture, ctx->fs);
+    Context* child = createContext(ctx->factory, script, ctx->texture, ctx->fs, ctx->userdata);
     child->parent = ctx;
     return child;
   }

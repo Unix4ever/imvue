@@ -82,7 +82,27 @@ SOFTWARE.
 
       operator char* () { return mData; }
 
-      ImString& operator=(char* string)
+      bool operator==(const char* string)
+      {
+        return strcmp(string, mData) == 0;
+      }
+
+      bool operator!=(const char* string)
+      {
+        return strcmp(string, mData) != 0;
+      }
+
+      bool operator==(const ImString& string)
+      {
+        return strcmp(string.c_str(), mData) == 0;
+      }
+
+      bool operator!=(const ImString& string)
+      {
+        return strcmp(string.c_str(), mData) != 0;
+      }
+
+      ImString& operator=(const char* string)
       {
         if(mData)
           unref();
