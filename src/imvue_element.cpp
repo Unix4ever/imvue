@@ -225,6 +225,7 @@ namespace ImVue {
     , mScriptContext(0)
     , mInvalidFlags(0)
     , mFlags(0)
+    , mRequiredAttrsCount(0)
     , mConfigured(false)
   {
   }
@@ -349,6 +350,9 @@ namespace ImVue {
     Attribute* reader = mBuilder->get(id);
     if(reader) {
       reader->read(id, value, this, mScriptState, flags, fields);
+      if(reader->required) {
+        mRequiredAttrsCount++;
+      }
       return true;
     }
 
@@ -366,6 +370,7 @@ namespace ImVue {
     }
 
     int flags = mConfigured ? 0 : Attribute::BIND_LISTENERS;
+    mRequiredAttrsCount = 0;
 
     for(const rapidxml::xml_attribute<>* a = mNode->first_attribute(); a; a = a->next_attribute()) {
       readProperty(a->name(), a->value(), flags);
@@ -375,6 +380,26 @@ namespace ImVue {
     readProperty(TEXT_ID, mNode->value(), flags);
     if(ref && mScriptState) {
       mScriptState->addReference(ref, this);
+    }
+
+    const ElementBuilder::RequiredAttrs& requiredAttrs = mBuilder->getRequiredAttrs();
+    if(mRequiredAttrsCount != requiredAttrs.size()) {
+      std::map<const char*, bool, CmpChar> visited;
+      // failed validation, now scan props and detect which one is missing
+      for(const rapidxml::xml_attribute<>* a = mNode->first_attribute(); a; a = a->next_attribute()) {
+        visited[a->name()] = true;
+      }
+
+      std::stringstream missed;
+      for(int i = 0; i < requiredAttrs.size(); ++i) {
+        const char* name = requiredAttrs[i];
+        if(!visited[name]) {
+          missed << (missed.str().empty() ? "" : ", ") << '"' << name << '"';
+        }
+      }
+
+      IMVUE_EXCEPTION(ElementError, "failed to build element %s, missing required properties %s", getType(), missed.str().c_str());
+      return false;
     }
     return enabled;
   }
@@ -483,7 +508,7 @@ namespace ImVue {
 
     EventHandler* handler = builder->createHandler(handlerName, fullName, value);
     if(!handler) {
-      IMVUE_EXCEPTION(ElementError, "failed create handler of type %s", handlerName);
+      IMVUE_EXCEPTION(ElementError, "failed to create handler of type %s", handlerName);
       return;
     }
     mHandlers[name] = handler;

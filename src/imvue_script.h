@@ -119,7 +119,7 @@ namespace ImVue {
       /**
        * Read value as integer
        */
-      virtual int readInt() = 0;
+      virtual long readInt() = 0;
 
       /**
        * Read value as string
@@ -138,7 +138,7 @@ namespace ImVue {
 
       // mandatory setters
       virtual void setObject(Object& value) = 0;
-      virtual void setInteger(unsigned long value) = 0;
+      virtual void setInteger(long value) = 0;
       virtual void setNumber(double value) = 0;
       virtual void setString(const char* value) = 0;
       virtual void setBool(bool value) = 0;
@@ -183,6 +183,22 @@ namespace ImVue {
 
       template<typename C>
       C as() const {
+        return as<C>(std::is_integral<C>());
+      }
+
+      template<typename C>
+      C as(std::true_type) const
+      {
+        if(!mObject) {
+          return 0;
+        }
+
+        return (C)mObject->readInt();
+      }
+
+      template<typename C>
+      C as(std::false_type) const
+      {
         IMVUE_EXCEPTION(ScriptError, "unsupported cast");
         return C{};
       }
@@ -207,12 +223,6 @@ namespace ImVue {
 
   template<>
   float Object::as<float>() const;
-
-  template<>
-  int Object::as<int>() const;
-
-  template<>
-  size_t Object::as<size_t>() const;
 
   class ObjectIterator {
     public:

@@ -15,6 +15,7 @@
 #define __IMVUE_CONFIG_H__
 
 #include "imgui.h"
+#include "imvue.h"
 #include "imvue_element.h"
 #include "imvue_errors.h"
 
@@ -112,6 +113,24 @@ namespace ImVue {
     factory.element<CollapsingHeader>("collapsing-header")
       .attribute("label", &CollapsingHeader::label)
       .attribute("flags", &CollapsingHeader::flags);
+
+      // register some built-in element types
+    factory.element<Document>("template");
+    factory.element<Element>("__element__")
+        .handler<MouseEventHandler>("click")
+        .handler<MouseEventHandler>("mousedown")
+        .handler<MouseEventHandler>("mouseup")
+        .handler<MouseEventHandler>("mouseover")
+        .handler<MouseEventHandler>("mouseout")
+        .handler<ChangeEventHandler>("change")
+        .handler<KeyboardEventHandler>("keydown")
+        .handler<KeyboardEventHandler>("keyup")
+        .handler<KeyboardEventHandler>("keypress")
+        .attribute("id", &Element::id)
+        .attribute("key", &Element::key)
+        .attribute("ref", &Element::ref);
+
+    factory.element<Slot>("slot");
     return res;
   }
 }

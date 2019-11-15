@@ -36,50 +36,18 @@ SOFTWARE.
 #include <cstring>
 #include <sstream>
 #include <unordered_map>
-
-#define PARSE_NUMERIC_TYPE(type) \
-  inline bool read(const char* value, type* dest) { \
-    *dest = parse_integral_type<type>(value); \
-    return true; \
-  } \
-  inline bool read(Object& obj, type* dest) { \
-    *dest = obj.as<type>(); \
-    return true; \
-  } \
-  inline bool read(Object& obj, type** dest) \
-  { \
-    if(*dest) { \
-      ImGui::MemFree(*dest); \
-      *dest = NULL; \
-    } \
-    \
-    size_t index = 0; \
-    ImVector<type> values; \
-    for(Object::iterator iter = obj.begin(); iter != obj.end(); ++iter, ++index) { \
-      values.push_back(iter.value.as<type>()); \
-    } \
-    \
-    *dest = (type*)ImGui::MemAlloc(values.size()); \
-    memcpy(*dest, values.Data, sizeof(type) * values.size()); \
-    return true; \
-  } \
-  inline bool read(const char* value, type** dest) \
-  { \
-    if(*dest) { \
-      ImGui::MemFree(*dest); \
-      *dest = NULL; \
-    } \
-    ImVector<type> values; \
-    parse_integral_type_array<type>(value, values); \
-    if(values.size() == 0) { \
-      return false; \
-    } \
-    *dest = (type*)ImGui::MemAlloc(values.size() * sizeof(type)); \
-    memcpy(*dest, values.Data, sizeof(type) * values.size()); \
-    return true; \
-  }
+#include <stdlib.h>
+#include <ctype.h>
 
 namespace ImVue {
+
+  struct CmpChar {
+
+    bool operator()(const char* a, const char* b) const
+    {
+      return std::strcmp(a, b) < 0;
+    }
+  };
 
   /**
    * ID for element text pseudo-attribute name
@@ -91,32 +59,56 @@ namespace ImVue {
   namespace detail {
 
     template<class C>
-    C parse_integral_type(const char* value) {
-      C res;
-      std::stringstream ss;
-      ss << value;
-      ss >> res;
-      return res;
+    typename std::enable_if<std::is_floating_point<C>::value, bool>::type
+    str_to_number(const char* value, C* dest) {
+      C res = 0;
+      try {
+        switch(sizeof(C)) {
+          case sizeof(float):
+            res = (C)std::stof(value);
+            break;
+          case sizeof(double):
+            res = (C)std::stod(value);
+            break;
+          case sizeof(long double):
+            res = (C)std::stold(value);
+            break;
+        }
+      } catch(std::exception const & e) {
+        return false;
+      }
+      *dest = res;
+      return true;
     }
 
     template<class C>
-    void parse_integral_type_array(const char* value, ImVector<C>& values) {
-      char buffer[64];
-      int index = 0;
-      for(int i = 0; i < 1024; i++) {
-        char c = value[i];
-
-        if(c == ',' || c == '\0') {
-          buffer[index] = '\0';
-          values.push_back(parse_integral_type<C>(&buffer[0]));
-          index = 0;
+    typename std::enable_if<std::is_integral<C>::value, bool>::type
+    str_to_number(const char* value, C* dest) {
+      C res = 0;
+      try {
+        if(std::is_signed<C>::value) {
+          switch(sizeof(C)) {
+            case sizeof(long long):
+              res = (C)std::stoll(value);
+              break;
+            default:
+              res = (C)std::stol(value);
+          }
         } else {
-          buffer[index++] = c;
+          switch(sizeof(C)) {
+            case sizeof(unsigned long long):
+              res = (C)std::stoull(value);
+              break;
+            default:
+              res = (C)std::stoul(value);
+          }
         }
-
-        if(c == '\0')
-          break;
+      } catch(std::exception const & e) {
+        return false;
       }
+
+      *dest = res;
+      return true;
     }
 
     inline bool read(const char* value, char** dest) {
@@ -130,13 +122,14 @@ namespace ImVue {
       return true;
     }
 
-    PARSE_NUMERIC_TYPE(int)
-    PARSE_NUMERIC_TYPE(float)
-    PARSE_NUMERIC_TYPE(double)
-    PARSE_NUMERIC_TYPE(size_t)
+    template<class C>
+    bool parse_array(const char* value, ImVector<C>& values);
 
     inline bool read(const char* value, ImGuiID* dest) {
-      *dest = ImHashStr(value);
+      if(!str_to_number<ImGuiID>(value, dest)) {
+        *dest = ImHashStr(value);
+      }
+
       return true;
     }
 
@@ -152,15 +145,16 @@ namespace ImVue {
         return true;
       }
 
-      *dest = parse_integral_type<bool>(value);
-      return true;
+      return str_to_number<bool>(value, dest);
     }
 
     inline bool read(const char* value, ImVec2* dest)
     {
       ImVector<float> values;
       values.reserve(2);
-      parse_integral_type_array(value, values);
+      if(!parse_array<float>(value, values)) {
+        return false;
+      }
       dest->x = values[0];
       dest->y = values[1];
       return true;
@@ -170,7 +164,9 @@ namespace ImVue {
     {
       ImVector<float> values;
       values.reserve(4);
-      parse_integral_type_array(value, values);
+      if(!parse_array<float>(value, values)) {
+        return false;
+      }
       dest->x = values[0];
       dest->y = values[1];
       dest->z = values[2];
@@ -183,19 +179,39 @@ namespace ImVue {
     {
       ImVector<C> values;
       values.reserve(N);
-      parse_integral_type_array<C>(value, values);
+      if(!parse_array<C>(value, values) || values.size() != N) {
+        return false;
+      }
       memcpy(*dest, values.Data, N * sizeof(C));
       return true;
     }
 
-    inline bool read(Object object, Object* dest)
+    template<class C>
+    typename std::enable_if<std::is_arithmetic<C>::value, bool>::type
+    read(const char* value, C** dest)
     {
-      *dest = object;
+      if(*dest) {
+        ImGui::MemFree(*dest);
+        *dest = NULL;
+      }
+      ImVector<C> values;
+      if(!parse_array<C>(value, values)) {
+        return false;
+      }
+      *dest = (C*)ImGui::MemAlloc(values.size_in_bytes());
+      memcpy(*dest, values.Data, values.size_in_bytes());
       return true;
     }
 
     template<class C>
-    bool read(const char* value, C dest)
+    typename std::enable_if<std::is_arithmetic<C>::value, bool>::type
+    read(const char* value, C* dest) {
+      return str_to_number<C>(value, dest);
+    }
+
+    template<class C>
+    typename std::enable_if<!std::is_arithmetic<C>::value, bool>::type
+    read(const char* value, C* dest)
     {
       IM_ASSERT("Detected unsupported field");
       (void)value;
@@ -204,7 +220,72 @@ namespace ImVue {
       return false;
     }
 
+    template<class C>
+    bool parse_array(const char* value, ImVector<C>& values)
+    {
+      char endsym = 0;
+      const char* start = value;
+      while(isspace(start[0])) {
+        start++;
+      }
+      switch(start[0]) {
+        case '{':
+          endsym = '}';
+          start++;
+          break;
+        case '[':
+          endsym = ']';
+          start++;
+          break;
+        case '(':
+          endsym = ')';
+          start++;
+          break;
+      }
+
+      const char* end = value + strlen(value);
+      const size_t bufferSize = 512;
+      char part[bufferSize] = {0};
+
+      end = (endsym == 0 ? end : ImStrchrRange(value, end, endsym)) - 1;
+      while(start < end + 1) {
+        const char* next = ImStrchrRange(start, end, ',');
+        if(next == 0) {
+          next = end + 1;
+        }
+
+        size_t len = (size_t)(next - start);
+        if(len == 0) {
+          break;
+        }
+
+        if(len > bufferSize) {
+          IMVUE_EXCEPTION(ElementError, "failed to parse array element. Max supported length is %d, got %d", bufferSize, len);
+          start = next + 1;
+          return false;
+        }
+
+        memcpy(&part[0], start, len);
+        part[len + 1] = '\0';
+
+        C element;
+        if(read(&part[0], &element)) {
+          values.push_back(element);
+        } else {
+          return false;
+        }
+        start = next + 1;
+      }
+      return true;
+    }
+
     // Script state object conversion
+
+    inline bool read(Object object, Object* dest)
+    {
+      *dest = object;
+      return true;
+    }
 
     template<class C, size_t N>
     inline bool read(Object& obj, C (*dest)[N])
@@ -217,7 +298,16 @@ namespace ImVue {
     }
 
     inline bool read(Object& obj, ImGuiID* dest) {
-      *dest = ImHashStr(obj.as<ImString>().get());
+      switch(obj.type()) {
+        case ObjectType::STRING:
+          *dest = ImHashStr(obj.as<ImString>().get());
+          break;
+        case ObjectType::NUMBER:
+          *dest = obj.as<ImGuiID>();
+          break;
+        default:
+          return false;
+      }
       return true;
     }
 
@@ -262,7 +352,20 @@ namespace ImVue {
     }
 
     template<class C>
-    bool read(Object& value, C dest)
+    typename std::enable_if<std::is_arithmetic<C>::value, bool>::type
+    read(Object& value, C* dest)
+    {
+      try {
+        *dest = value.as<C>();
+      } catch(const ScriptError& e) {
+        return false;
+      }
+      return true;
+    }
+
+    template<class C>
+    typename std::enable_if<!std::is_arithmetic<C>::value, bool>::type
+    read(Object& value, C* dest)
     {
       IM_ASSERT("Detected unsupported field");
       (void)value;
@@ -472,6 +575,7 @@ namespace ImVue {
 
       unsigned int mInvalidFlags;
       unsigned int mFlags;
+      int mRequiredAttrsCount;
 
       bool mConfigured;
 
@@ -499,6 +603,11 @@ namespace ImVue {
         // evaluation of :value="script", text will be evaluated as a script
         SCRIPT            = 1 << 2
       };
+
+      Attribute(bool r = false)
+        : required(r)
+      {
+      }
 
       virtual ~Attribute() {}
 
@@ -529,6 +638,8 @@ namespace ImVue {
        * @return true if copy was successful
        */
       virtual bool copy(Element* element, Object& dest) const = 0;
+
+      bool required;
   };
 
   /**
@@ -538,8 +649,8 @@ namespace ImVue {
   class AttributeMemPtr : public Attribute {
     public:
       AttributeMemPtr(D C::* memPtr, bool required = false)
-        : mMemPtr(memPtr)
-        , mRequired(required)
+        : Attribute(required)
+        , mMemPtr(memPtr)
       {
       }
 
@@ -598,7 +709,7 @@ namespace ImVue {
           success = detail::read(str, dest);
         }
 
-        if(!success && mRequired) {
+        if(!success && required) {
           IMVUE_EXCEPTION(ElementError, "failed to read required attribute %s", attribute);
           return;
         }
@@ -609,9 +720,9 @@ namespace ImVue {
         D* value = &(static_cast<C*>(element)->*mMemPtr);
         return dest.set(value, typeID<D>::value());
       }
+
     private:
       D C::* mMemPtr;
-      bool mRequired;
   };
 
   /**
@@ -640,6 +751,9 @@ namespace ImVue {
    */
   class ElementBuilder {
     public:
+      typedef ImVector<const char*> RequiredAttrs;
+      RequiredAttrs mRequiredAttrs;
+
       virtual ~ElementBuilder()
       {
         for(Attributes::iterator iter = mAttributes.begin(); iter != mAttributes.end(); ++iter) {
@@ -673,6 +787,11 @@ namespace ImVue {
         return nullptr;
       }
 
+      const ElementBuilder::RequiredAttrs& getRequiredAttrs() const
+      {
+        return mRequiredAttrs;
+      }
+
     protected:
 
       friend class ElementFactory;
@@ -695,23 +814,22 @@ namespace ImVue {
             mHandlers[iter->first] = iter->second;
           }
         }
+
+        if(other.mRequiredAttrs.size() != 0) {
+          int oldSize = mRequiredAttrs.size();
+          mRequiredAttrs.resize(oldSize + other.mRequiredAttrs.size());
+          memcpy(&mRequiredAttrs.Data[oldSize], other.mRequiredAttrs.Data, other.mRequiredAttrs.size_in_bytes());
+        }
       }
 
       int getLayer(ElementFactory* f);
 
       void readInheritance(ElementFactory* f);
 
-      struct CmpAttributeName {
-        bool operator()(const char* a, const char* b) const
-        {
-          return std::strcmp(const_cast<const char*>(a), const_cast<const char*>(b)) < 0;
-        }
-      };
-
-      typedef std::map<const char*, Attribute*, CmpAttributeName> Attributes;
+      typedef std::map<const char*, Attribute*, CmpChar> Attributes;
       Attributes mAttributes;
 
-      typedef std::map<const char*, HandlerFactory*, CmpAttributeName> Handlers;
+      typedef std::map<const char*, HandlerFactory*, CmpChar> Handlers;
       Handlers mHandlers;
 
       typedef std::vector<ImString> Inheritance;
@@ -749,6 +867,9 @@ namespace ImVue {
       {
         mAttributes[name] = new AttributeMemPtr<C, D>(memPtr, required);
         mAttributes[name]->owner = this;
+        if(required) {
+          mRequiredAttrs.push_back(name);
+        }
         return *this;
       }
 
@@ -763,6 +884,9 @@ namespace ImVue {
       {
         mAttributes[TEXT_ID] = new AttributeMemPtr<C, D>(memPtr, required);
         mAttributes[TEXT_ID]->owner = this;
+        if(required) {
+          mRequiredAttrs.push_back(TEXT_ID);
+        }
         return *this;
       }
 
@@ -801,14 +925,7 @@ namespace ImVue {
    */
   class ElementFactory {
 
-      struct CmpElementID {
-        bool operator()(const char* a, const char* b) const
-        {
-          return std::strcmp(a, b) < 0;
-        }
-      };
-
-      typedef std::map<const char*, ElementBuilder*, CmpElementID> ElementBuilders;
+      typedef std::map<const char*, ElementBuilder*, CmpChar> ElementBuilders;
 
     public:
       ElementFactory()

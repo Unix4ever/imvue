@@ -157,12 +157,14 @@ elements_rules:
       - v
     test_values:
       p_data: 1
+      v: 0.0
   SliderFloat:
     required_fields:
       - label
       - v
     test_values:
       p_data: 1
+      v: 0.0
 
 # test generator config section
 test_values_by_type:

@@ -96,7 +96,7 @@ namespace ImVue {
         }
         break;
       case ObjectType::INTEGER:
-        mObject->setInteger(*reinterpret_cast<unsigned long*>(value));
+        mObject->setInteger(*reinterpret_cast<long*>(value));
         break;
       case ObjectType::NUMBER:
         mObject->setNumber(*reinterpret_cast<double*>(value));
@@ -149,22 +149,6 @@ namespace ImVue {
   float Object::as<float>() const
   {
     return (float)as<double>();
-  }
-
-  template<>
-  int Object::as<int>() const
-  {
-    if(!mObject) {
-      return 0;
-    }
-
-    return mObject->readInt();
-  }
-
-  template<>
-  size_t Object::as<size_t>() const
-  {
-    return (size_t)as<int>();
   }
 
   void ScriptState::ReactListener::trigger()
