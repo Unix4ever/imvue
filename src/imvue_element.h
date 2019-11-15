@@ -353,6 +353,23 @@ namespace ImVue {
 
     template<class C>
     typename std::enable_if<std::is_arithmetic<C>::value, bool>::type
+    read(Object& value, C** dest)
+    {
+      if(*dest) {
+        ImGui::MemFree(*dest);
+        *dest = NULL;
+      }
+      ImVector<C> values;
+      for(Object::iterator iter = value.begin(); iter != value.end(); ++iter) {
+        values.push_back(iter.value.as<C>());
+      }
+      *dest = (C*)ImGui::MemAlloc(values.size_in_bytes());
+      memcpy(*dest, values.Data, values.size_in_bytes());
+      return true;
+    }
+
+    template<class C>
+    typename std::enable_if<std::is_arithmetic<C>::value, bool>::type
     read(Object& value, C* dest)
     {
       try {
