@@ -695,7 +695,7 @@ TEST(TestGeneratedElement, Separator)
 const char* testDocumentVSliderFloat =
 "<template>"
   "<window name=\"test\">"
-    "<v-slider-float v=\"None\">test</v-slider-float>"
+    "<v-slider-float v=\"0.0\">test</v-slider-float>"
   "</window>"
 "</template>";
 
@@ -1020,7 +1020,7 @@ TEST(TestGeneratedElement, ArrowButton)
 const char* testDocumentSliderFloat =
 "<template>"
   "<window name=\"test\">"
-    "<slider-float v=\"None\">test</slider-float>"
+    "<slider-float v=\"0.0\">test</slider-float>"
   "</window>"
 "</template>";
 

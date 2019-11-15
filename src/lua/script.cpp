@@ -216,7 +216,7 @@ extern "C" {
 
       virtual void keys(ObjectKeys& res);
 
-      virtual int readInt() {
+      virtual long readInt() {
         StackGuard g(mLuaState);
         unwrap();
         return lua_tointeger(mLuaState, -1);
@@ -251,7 +251,7 @@ extern "C" {
         assign();
       }
 
-      virtual void setInteger(unsigned long value)
+      virtual void setInteger(long value)
       {
         lua_pushinteger(mLuaState, value);
         assign();

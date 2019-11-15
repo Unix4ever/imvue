@@ -257,32 +257,6 @@ namespace ImVue {
       return;
     }
 
-    if(!mConfigured) {
-      // register some built-in element types
-      mCtx->factory->element<Document>("template");
-      mCtx->factory->element<Element>("__element__")
-        .handler<MouseEventHandler>("click")
-        .handler<MouseEventHandler>("mousedown")
-        .handler<MouseEventHandler>("mouseup")
-        .handler<MouseEventHandler>("mouseover")
-        .handler<MouseEventHandler>("mouseout")
-        .handler<MouseEventHandler>("mouseout")
-        .handler<ChangeEventHandler>("change")
-        .handler<KeyboardEventHandler>("keydown")
-        .handler<KeyboardEventHandler>("keyup")
-        .handler<KeyboardEventHandler>("keypress")
-        .attribute("id", &Element::id)
-        .attribute("key", &Element::key)
-        .attribute("ref", &Element::ref);
-
-      mCtx->factory->element<Slot>("slot");
-
-      mCtx->factory->element<SvgImage>("svg-image")
-        .attribute("size", &SvgImage::size)
-        .attribute("src", &SvgImage::src, true)
-        .attribute("tint-col", &SvgImage::tint_col);
-    }
-
     mScriptState = mCtx->script;
 
     std::stringstream ss;

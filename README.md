@@ -46,7 +46,7 @@ Vue Special Syntax
 - `v-if/v-else-if/v-else`.
 - `v-for` (does not support int index e.g.: `value, key, index`).
 - `v-on`.
-  - `v-on:(click:mousedown|mouseup|mouseover|mouseout)[.[ctrl|alt|meta|shift|exact]]`.
+  - `v-on:(click|mousedown|mouseup|mouseover|mouseout)[.[ctrl|alt|meta|shift|exact]]`.
   - `v-on:(keyup|keydown|keypress)[.][<key_code>]`.
   - `v-on:change`.
 - Attributes starting with `:` are treated as `v-bind:...`.
