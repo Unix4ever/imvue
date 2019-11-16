@@ -679,6 +679,29 @@ TEST_F(LuaScriptStateTest, TestComponentReactivity)
   EXPECT_STREQ(local[0]->text, "updated");
 }
 
+TEST_F(LuaScriptStateTest, TestComponentCreationError)
+{
+  ImVue::LuaScriptState* state = new ImVue::LuaScriptState(L);
+  ImVue::Context* ctx = ImVue::createContext(
+    ImVue::createElementFactory(),
+    state
+  );
+  luaL_dostring(L, "widget = 'bad'");
+  ImVue::Document document(ctx);
+  char* data = ctx->fs->load("components.xml");
+  ASSERT_NE((size_t)data, 0);
+  EXPECT_THROW({
+      try{
+    document.parse(data);
+    renderDocument(document);
+    } catch(ImVue::ElementError e) {
+      std::cout << e.what() << "\n";
+      throw;
+    }
+  }, ImVue::ScriptError);
+  ImGui::MemFree(data);
+}
+
 TEST_F(LuaScriptStateTest, TestComponentLifecycle)
 {
   ImVue::LuaScriptState* state = new ImVue::LuaScriptState(L);

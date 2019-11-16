@@ -516,7 +516,7 @@ namespace ImVue {
 
   void Element::fireCallback(ScriptState::LifecycleCallbackType cb, bool schedule)
   {
-    if(!mCtx->script) {
+    if(!mCtx || !mCtx->script) {
       return;
     }
 

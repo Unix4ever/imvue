@@ -371,13 +371,18 @@ namespace ImVue {
   void Component::configure(rapidxml::xml_node<>* node, Context* ctx, ScriptState::Context* sctx, Element* parent)
   {
     Context* child = newChildContext(ctx);
-    child->root = this;
-    if(child->script) {
-      child->script->initialize(mData);
-      child->script->lifecycleCallback(ScriptState::BEFORE_CREATE);
-    }
+    try {
+      child->root = this;
+      if(child->script) {
+        child->script->initialize(mData);
+        child->script->lifecycleCallback(ScriptState::BEFORE_CREATE);
+      }
 
-    mScriptState = ctx->script;
+      mScriptState = ctx->script;
+    } catch(...) {
+      delete child;
+      throw;
+    }
     Element::configure(node, child, sctx, parent);
     if(mConfigured) {
       fireCallback(ScriptState::CREATED);
