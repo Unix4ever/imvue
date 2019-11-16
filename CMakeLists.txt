@@ -40,13 +40,14 @@ if(BUILD_LUA_BINDINGS)
   set(ADDITIONAL_SOURCES src/lua/script.cpp ${ADDITIONAL_SOURCES})
 endif(BUILD_LUA_BINDINGS)
 
-if(BUILD_KATANA_FROM_SUBMODULE)
-  set(KATANA_INCLUDE_DIRS katana-parser/src/)
-  set(KATANA_LIBRARY katana)
-  include_directories(${KATANA_INCLUDE_DIRS})
-  file(GLOB_RECURSE sources katana-parser/src/*.c)
-  add_library(${KATANA_LIBRARY} STATIC ${sources})
-endif(BUILD_KATANA_FROM_SUBMODULE)
+# disable it for now. It's not used, and does not build on windows
+#if(BUILD_KATANA_FROM_SUBMODULE)
+#  set(KATANA_INCLUDE_DIRS katana-parser/src/)
+#  set(KATANA_LIBRARY katana)
+#  include_directories(${KATANA_INCLUDE_DIRS})
+#  file(GLOB_RECURSE sources katana-parser/src/*.c)
+#  add_library(${KATANA_LIBRARY} STATIC ${sources})
+#endif(BUILD_KATANA_FROM_SUBMODULE)
 
 if(BUILD_TESTS)
   find_package(GTest)
@@ -72,6 +73,7 @@ add_library(${LIB_NAME} STATIC
   src/imvue_element.cpp
   src/imvue_script.cpp
   src/imvue_context.cpp
+  src/imstring.cpp
 ${ADDITIONAL_SOURCES})
 
 set(IMGUI_SOURCES
@@ -98,7 +100,7 @@ endif(BUILD_IMGUI_FROM_SUBMODULE)
 target_link_libraries(${LIB_NAME} ${ADDITIONAL_LIBS})
 
 if(MSVC)
-  target_compile_options(${LIB_NAME} PRIVATE /W4 /WX)
+  target_compile_options(${LIB_NAME} PRIVATE /W4)
 else()
-  target_compile_options(${LIB_NAME} PRIVATE -Wall -Wextra -pedantic -Werror)
+  target_compile_options(${LIB_NAME} PRIVATE -Wall -Wextra -pedantic)
 endif()

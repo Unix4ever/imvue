@@ -96,19 +96,26 @@ extern "C" {
    */
   struct StackGuard {
 
-    StackGuard(lua_State* state) : L(state) {
+    StackGuard(lua_State* state) 
+      : L(state)
+      , refs(0)
+    {
       top = lua_gettop(L);
-      refs = (int*)ImGui::MemAlloc(sizeof(int));
-      (*refs) = 1;
     }
 
-    StackGuard(const StackGuard& other) {
+    StackGuard(StackGuard& other) {
       (*this) = other;
     }
 
-    StackGuard& operator=(const StackGuard& other) {
+    StackGuard& operator=(StackGuard& other) {
+      if(!other.refs) {
+        other.refs = (int*)ImGui::MemAlloc(sizeof(int));
+        (*other.refs) = 1;
+      }
+
       top = other.top;
       L = other.L;
+
       refs = other.refs;
       (*refs)++;
       return *this;
@@ -116,13 +123,14 @@ extern "C" {
 
     ~StackGuard()
     {
-      IM_ASSERT(refs != 0 && (*refs) > 0);
-      if(!L || --(*refs) > 0) {
+      if(!L || (refs && --(*refs) > 0)) {
         return;
       }
 
-      ImGui::MemFree(refs);
-      refs = 0;
+      if(refs) {
+        ImGui::MemFree(refs);
+        refs = 0;
+      }
       int delta = lua_gettop(L) - top;
       if(delta > 0) {
         lua_pop(L, delta);
@@ -243,6 +251,7 @@ extern "C" {
 
       virtual void setObject(Object& object)
       {
+        StackGuard g(mLuaState);
         if(!object.valid()) {
           return;
         }
@@ -253,24 +262,28 @@ extern "C" {
 
       virtual void setInteger(long value)
       {
+        StackGuard g(mLuaState);
         lua_pushinteger(mLuaState, value);
         assign();
       }
 
       virtual void setNumber(double value)
       {
+        StackGuard g(mLuaState);
         lua_pushnumber(mLuaState, value);
         assign();
       }
 
       void setString(const char* value)
       {
+        StackGuard g(mLuaState);
         lua_pushstring(mLuaState, value);
         assign();
       }
 
       void setBool(bool value)
       {
+        StackGuard g(mLuaState);
         lua_pushboolean(mLuaState, value);
         assign();
       }
@@ -674,7 +687,7 @@ extern "C" {
     }
     Element* element = (Element*) e;
     if(lua_type(L, -1) == LUA_TNUMBER) {
-      element->invalidateFlags(lua_tointeger(L, -1));
+      element->invalidateFlags((unsigned int)lua_tointeger(L, -1));
     } else if(lua_type(L, -1) == LUA_TSTRING) {
       element->invalidate(lua_tostring(L, -1));
     }
@@ -699,7 +712,7 @@ extern "C" {
   }
 
   static int lua_removeIndex(lua_State* L) {
-    int index = lua_tointeger(L, -1);
+    int index = (int)lua_tointeger(L, -1);
     ReactiveTable* rt = lua_GetReactiveTable(L, -2);
     rt->unwrap(L);
     int tableIndex = lua_gettop(L);
@@ -731,7 +744,7 @@ extern "C" {
       return 0;
     }
 
-    ScriptState::RefHash ref = lua_tointeger(L, lua_upvalueindex(2));
+    ScriptState::RefHash ref = (ScriptState::RefHash)lua_tointeger(L, lua_upvalueindex(2));
     ScriptState::RefMap& refMap = *(*reinterpret_cast<ScriptState::RefMap**>(refs));
 
     if(refMap.count(ref) == 0) {
@@ -812,7 +825,7 @@ extern "C" {
         , mScriptState(NULL)
         , mRef(LUA_NOREF)
       {
-        luaL_checktype(L, 1, LUA_TTABLE);
+        luaL_checktype(L, -1, LUA_TTABLE);
         mRef = luaL_ref(mLuaState, LUA_REGISTRYINDEX);
       }
 
@@ -1060,6 +1073,7 @@ extern "C" {
 
   void LuaScriptState::initialize(Object data)
   {
+    StackGuard g(mLuaState);
     static_cast<LuaObject*>(data.getImpl())->unwrap(mLuaState);
     int index = lua_gettop(mLuaState);
     // copy table
@@ -1266,6 +1280,7 @@ extern "C" {
 
   void LuaScriptState::setupState(int ref)
   {
+    StackGuard g(mLuaState);
     if(mImVue) {
       luaL_unref(mLuaState, LUA_REGISTRYINDEX, mRef);
       mRef = LUA_NOREF;
@@ -1289,6 +1304,7 @@ extern "C" {
 
   void LuaScriptState::setObject(char* key, Object& value, int tableIndex)
   {
+    StackGuard g(mLuaState);
     LuaObject* v = static_cast<LuaObject*>(value.getImpl());
     if(!v) {
       IMVUE_EXCEPTION(ScriptError, "tried to set null value in context");

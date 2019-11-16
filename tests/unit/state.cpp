@@ -9,19 +9,71 @@
 #include "lua/script.h"
 #include <tuple>
 
+class StackChecker
+{
+  public:
+    void init(lua_State* s)
+    {
+      L = s;
+      top = lua_gettop(L);
+    }
+
+    void check()
+    {
+      if(lua_gettop(L) != top) {
+        EXPECT_EQ(lua_gettop(L), top);
+        while(lua_gettop(L) > top && lua_gettop(L) > 0) {
+          int lt = lua_type(L, -1);
+          int current = lua_gettop(L);
+          switch(lt) {
+            case LUA_TTABLE:
+              std::cout << "#" << current << ", table\n";
+              break;
+            case LUA_TSTRING:
+              std::cout << "#" << current << ", string: " << lua_tostring(L, -1) << "\n";
+              break;
+            case LUA_TNUMBER:
+              std::cout << "#" << current << ", number: " << lua_tonumber(L, -1) << "\n";
+              break;
+            case LUA_TBOOLEAN:
+              std::cout << "#" << current << ", bool: " << lua_toboolean(L, -1) << "\n";
+              break;
+            case LUA_TUSERDATA:
+              std::cout << "#" << current << ", userdata\n";
+              break;
+            case LUA_TFUNCTION:
+              std::cout << "#" << current << ", function\n";
+              break;
+            default:
+              std::cout << "#" << current << ", type\n";
+              break;
+          }
+          lua_pop(L, 1);
+        }
+      }
+    }
+
+  private:
+    lua_State* L;
+    int top;
+};
+
 class LuaScriptStateTest : public ::testing::Test {
   protected:
     void SetUp() override {
       L = luaL_newstate();
       luaL_openlibs(L);
       ImVue::registerBindings(L);
+      sc.init(L);
     }
 
     void TearDown() override {
+      sc.check();
       lua_close(L);
     }
 
     lua_State* L;
+    StackChecker sc;
 };
 
 void getLuaVariable(lua_State* L, const char* table, const char* key, bool& result) {
@@ -229,13 +281,16 @@ class MouseHandlerTest : public ::testing::Test, public testing::WithParamInterf
       L = luaL_newstate();
       luaL_openlibs(L);
       ImVue::registerBindings(L);
+      sc.init(L);
     }
 
     void TearDown() override {
+      sc.check();
       lua_close(L);
     }
 
     lua_State* L;
+    StackChecker sc;
 };
 
 TEST_P(MouseHandlerTest, TestMouseHandlers) {
@@ -569,13 +624,16 @@ class LuaVForTest : public ::testing::Test, public testing::WithParamInterface<V
       L = luaL_newstate();
       luaL_openlibs(L);
       ImVue::registerBindings(L);
+      sc.init(L);
     }
 
     void TearDown() override {
+      sc.check();
       lua_close(L);
     }
 
     lua_State* L;
+    StackChecker sc;
 };
 
 TEST_P(LuaVForTest, TestVFor)
@@ -753,13 +811,16 @@ class LuaComponentPropsTest : public ::testing::Test, public testing::WithParamI
       L = luaL_newstate();
       luaL_openlibs(L);
       ImVue::registerBindings(L);
+      sc.init(L);
     }
 
     void TearDown() override {
+      sc.check();
       lua_close(L);
     }
 
     lua_State* L;
+    StackChecker sc;
 };
 
 const char* NO_VAL = "\0";

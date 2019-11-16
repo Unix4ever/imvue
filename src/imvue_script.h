@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include "imgui.h"
 #include "imstring.h"
+#include "imgui_internal.h"
 #include "imvue_errors.h"
 
 namespace ImVue {
