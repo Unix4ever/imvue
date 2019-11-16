@@ -3,7 +3,10 @@
     <button v-on:click="self.count = self.count + 1">increase counter</button>
     <text-unformatted>current count {{ self.count }}</text-unformatted>
   </window>
-  <template v-if="widget == 'basic'">
+  <template v-if="widget == 'bad'">
+    <bad/>
+  </template>
+  <template v-else-if="widget == 'basic'">
     <widget :count="self.count"/>
   </template>
   <template v-else-if="widget == 'lifecycle'">

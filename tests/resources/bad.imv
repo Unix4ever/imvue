@@ -1,0 +1,18 @@
+<template>
+</template>
+
+<script>
+return {
+  props = {
+    ['value-test'] = {
+      type = ImVue_String,
+      default = 'kek'
+    }
+  },
+  mounted = function()
+    self.crash()
+  end,
+  data = function()
+  end
+}
+</script>
