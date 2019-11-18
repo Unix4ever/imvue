@@ -36,8 +36,14 @@ SOFTWARE.
 #include <cstring>
 #include <sstream>
 #include <unordered_map>
+
+#ifdef _WIN32
+#include <tchar.h>
+#include <algorithm>
+#else
 #include <stdlib.h>
 #include <ctype.h>
+#endif
 
 namespace ImVue {
 
@@ -58,56 +64,73 @@ namespace ImVue {
   // used for parsing statically defined fields as ints/floats/arrays etc
   namespace detail {
 
+    inline void str_to_floating(const char* value, float* dest)
+    {
+      *dest = std::stof(value);
+    }
+
+    inline void str_to_floating(const char* value, double* dest)
+    {
+      *dest = std::stod(value);
+    }
+
+    inline void str_to_floating(const char* value, long double* dest)
+    {
+      *dest = std::stold(value);
+    }
+
+    template<class C>
+    void str_to_floating(const char* value, C* dest)
+    {
+      *dest = (C)std::stod(value);
+    }
+
     template<class C>
     typename std::enable_if<std::is_floating_point<C>::value, bool>::type
     str_to_number(const char* value, C* dest) {
-      C res = 0;
       try {
-        switch(sizeof(C)) {
-          case sizeof(float):
-            res = (C)std::stof(value);
-            break;
-          case sizeof(double):
-            res = (C)std::stod(value);
-            break;
-          case sizeof(long double):
-            res = (C)std::stold(value);
-            break;
-        }
+        str_to_floating(value, dest);
       } catch(std::exception const & e) {
+        (void)e;
         return false;
       }
-      *dest = res;
       return true;
+    }
+
+    inline void str_to_int(const char* value, long long* dest)
+    {
+      *dest = std::stoll(value);
+    }
+
+    inline void str_to_int(const char* value, unsigned long long* dest)
+    {
+      *dest = std::stoull(value);
+    }
+
+    template<class C>
+    typename std::enable_if<std::is_signed<C>::value>::type
+    str_to_int(const char* value, C* dest)
+    {
+      *dest = (C)std::stol(value);
+    }
+
+    template<class C>
+    typename std::enable_if<!std::is_signed<C>::value>::type
+    str_to_int(const char* value, C* dest)
+    {
+      *dest = (C)std::stoul(value);
     }
 
     template<class C>
     typename std::enable_if<std::is_integral<C>::value, bool>::type
     str_to_number(const char* value, C* dest) {
-      C res = 0;
       try {
-        if(std::is_signed<C>::value) {
-          switch(sizeof(C)) {
-            case sizeof(long long):
-              res = (C)std::stoll(value);
-              break;
-            default:
-              res = (C)std::stol(value);
-          }
-        } else {
-          switch(sizeof(C)) {
-            case sizeof(unsigned long long):
-              res = (C)std::stoull(value);
-              break;
-            default:
-              res = (C)std::stoul(value);
-          }
-        }
+        str_to_int(value, dest);
       } catch(std::exception const & e) {
+        (void)e;
         return false;
       }
 
-      *dest = res;
       return true;
     }
 
@@ -261,8 +284,10 @@ namespace ImVue {
 
         if(len > bufferSize) {
           IMVUE_EXCEPTION(ElementError, "failed to parse array element. Max supported length is %d, got %d", bufferSize, len);
+#if IMVUE_NO_EXCEPTIONS
           start = next + 1;
           return false;
+#endif
         }
 
         memcpy(&part[0], start, len);
@@ -375,6 +400,7 @@ namespace ImVue {
       try {
         *dest = value.as<C>();
       } catch(const ScriptError& e) {
+        (void)e;
         return false;
       }
       return true;

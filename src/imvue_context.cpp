@@ -47,6 +47,7 @@ namespace ImVue {
     }
     catch(std::exception& e)
     {
+      (void)e;
       return NULL;
     }
 

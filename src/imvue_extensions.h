@@ -9,6 +9,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <ctime>
+#ifdef _WIN32
+#include <algorithm>
+#endif
 
 namespace ImVue {
 
@@ -322,7 +325,7 @@ namespace ImVue {
             free(mData);
           }
 
-          mData = (unsigned char*)malloc(drawnSize.x * drawnSize.y * 4);
+          mData = (unsigned char*)malloc((size_t)drawnSize.x * (size_t)drawnSize.y * 4);
           nsvgRasterize(mRasterizer, mImage, 0, 0, std::min(scale.x, scale.y), mData, drawnSize.x, drawnSize.y, drawnSize.x * 4);
           mSize = drawnSize;
           changed = true;
@@ -334,7 +337,7 @@ namespace ImVue {
           }
 
           std::cout << "Image is redrawn\n";
-          mTextureID = mTextureManager->createTexture(mData, drawnSize.x, drawnSize.y);
+          mTextureID = mTextureManager->createTexture(mData, (int)drawnSize.x, (int)drawnSize.y);
         }
 
         if(mTextureID) {

@@ -185,12 +185,12 @@ namespace ImVue {
 
   Element* ComponentContainer::createComponent(rapidxml::xml_node<>* node, Context* ctx, ScriptState::Context* sctx)
   {
-    ImU32 id = ImHashStr(node->name());
-    if(mComponents.count(id) == 0) {
+    ImU32 nodeID = ImHashStr(node->name());
+    if(mComponents.count(nodeID) == 0) {
       return NULL;
     }
 
-    Component* component = mComponents[id].create();
+    Component* component = mComponents[nodeID].create();
     try {
       component->configure(node, ctx, sctx, this);
     } catch(...) {
@@ -270,13 +270,13 @@ namespace ImVue {
     if(scriptNode && mScriptState) {
       rapidxml::xml_attribute<>* src = scriptNode->first_attribute("src");
       if(src) {
-        char* data = mCtx->fs->load(src->value());
-        if(!data) {
+        char* rawData = mCtx->fs->load(src->value());
+        if(!rawData) {
           IMVUE_EXCEPTION(ElementError, "failed to load document %s", src->value());
           return;
         }
-        mScriptState->initialize(data);
-        ImGui::MemFree(data);
+        mScriptState->initialize(rawData);
+        ImGui::MemFree(rawData);
       } else {
         mScriptState->initialize(scriptNode->value());
       }
@@ -318,27 +318,27 @@ namespace ImVue {
     {
       ComponentProperty& prop = iter->second;
       const char* name = prop.attribute.get();
-      const char* id = prop.id();
+      const char* attrID = prop.id();
 
       rapidxml::xml_attribute<>* attr = mNode->first_attribute(name);
       if(!attr) {
-        attr = mNode->first_attribute(id);
+        attr = mNode->first_attribute(attrID);
       }
 
       if(!attr) {
         Object def = prop.def;
         if(prop.required && !def) {
-          IMVUE_EXCEPTION(ElementError, "required property %s is not defined", id);
+          IMVUE_EXCEPTION(ElementError, "required property %s is not defined", attrID);
           return false;
         }
 
         if(def) {
           if(!prop.validate(def)) {
-            IMVUE_EXCEPTION(ElementError, "validation failed on default value, prop: %s", id);
+            IMVUE_EXCEPTION(ElementError, "validation failed on default value, prop: %s", attrID);
             return false;
           }
           ScriptState& state = *mCtx->script;
-          state[id] = def;
+          state[attrID] = def;
         }
       }
     }
@@ -389,9 +389,9 @@ namespace ImVue {
     }
   }
 
-  bool Component::initAttribute(const char* id, const char* value, int flags, ScriptState::Fields* fields)
+  bool Component::initAttribute(const char* attrID, const char* value, int flags, ScriptState::Fields* fields)
   {
-    ImU32 hash = ImHashStr(id);
+    ImU32 hash = ImHashStr(attrID);
 
     if(mProperties.count(hash) == 0) {
       return false;
@@ -403,14 +403,14 @@ namespace ImVue {
     if((flags & Attribute::SCRIPT) && mScriptState) {
       Object result = mScriptState->getObject(value, fields, mScriptContext);
       if(!prop.validate(result)) {
-        IMVUE_EXCEPTION(ElementError, "[%s] field validation failed %s, got type: %d", getType(), id, result.type());
+        IMVUE_EXCEPTION(ElementError, "[%s] field validation failed %s, got type: %d", getType(), attrID, result.type());
         return false;
       }
       if(result) {
-        state[id] = result;
+        state[attrID] = result;
       }
     } else {
-      state[id] = value;
+      state[attrID] = value;
     }
 
     return true;

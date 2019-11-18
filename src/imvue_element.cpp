@@ -288,8 +288,8 @@ namespace ImVue {
     mDirtyProperties[attribute] = true;
   }
 
-  const Attribute* Element::getAttribute(const char* id) const {
-    return mBuilder->get(id);
+  const Attribute* Element::getAttribute(const char* attrID) const {
+    return mBuilder->get(attrID);
   }
 
   void Element::invalidateFlags(unsigned int flags) {
@@ -311,16 +311,16 @@ namespace ImVue {
 
   void Element::readProperty(const char* name, const char* value, int flags)
   {
-    std::string id = name;
+    const char* attrID = name;
     if(ImStricmp(name, TEXT_ID) == 0) {
       flags |= Attribute::TEMPLATED_STRING;
     } else if(name[0] == ':') {
       flags |= Attribute::SCRIPT;
-      id = id.substr(1, id.size());
+      attrID = &name[1];
     }
 
     // process v-if v-else v-else-if v-for
-    if(ImStrnicmp(name, "v-else", 6) == 0 || id == "v-if") {
+    if(ImStrnicmp(attrID, "v-else", 6) == 0 || ImStricmp(attrID, "v-if") == 0) {
       if(enabledAttr) {
         ImGui::MemFree(enabledAttr);
       }
@@ -329,7 +329,7 @@ namespace ImVue {
     }
 
     ScriptState::Fields fields;
-    bool initialized = initAttribute(&id[0], value, flags, &fields);
+    bool initialized = initAttribute(attrID, value, flags, &fields);
 
     if(flags & Attribute::BIND_LISTENERS && fields.size() > 0) {
       bindListeners(fields, name);
@@ -340,16 +340,16 @@ namespace ImVue {
     }
 
     // check event listeners
-    if(std::strncmp(&id[0], "v-on", 4) == 0) {
+    if(std::strncmp(attrID, "v-on", 4) == 0) {
       addHandler(name, value, mBuilder);
     }
   }
 
-  bool Element::initAttribute(const char* id, const char* value, int flags, ScriptState::Fields* fields)
+  bool Element::initAttribute(const char* attrID, const char* value, int flags, ScriptState::Fields* fields)
   {
-    Attribute* reader = mBuilder->get(id);
+    Attribute* reader = mBuilder->get(attrID);
     if(reader) {
-      reader->read(id, value, this, mScriptState, flags, fields);
+      reader->read(attrID, value, this, mScriptState, flags, fields);
       if(reader->required) {
         mRequiredAttrsCount++;
       }
@@ -771,7 +771,7 @@ namespace ImVue {
       if(e == mDefault) {
         continue;
       }
-      rapidxml::xml_attribute<>* attr = mAttributes[i];
+      rapidxml::xml_attribute<>* attr = mAttributes[(int)i];
       Object object = mScriptState->getObject(attr->value(), NULL, mScriptContext);
       detail::read(object, &e->enabled);
 
