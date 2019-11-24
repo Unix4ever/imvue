@@ -754,7 +754,6 @@ namespace ImVue {
 
         if(!success && required) {
           IMVUE_EXCEPTION(ElementError, "failed to read required attribute %s", attribute);
-          return;
         }
       }
 
@@ -766,6 +765,93 @@ namespace ImVue {
 
     private:
       D C::* mMemPtr;
+  };
+
+  /**
+   * Setter implementation of attribute reader
+   */
+  template<class C, typename Type>
+  class AttributeSetter : public Attribute {
+    public:
+
+      typedef void(C::*SetterFunc)(Type);
+
+      AttributeSetter(SetterFunc func, bool required = false)
+        : Attribute(required)
+        , mSetter(func)
+      {
+        static_assert(std::is_trivially_constructible<Type>::value, "setter can only be used with trivially constructible types");
+      }
+
+      void read(const char* attribute, const char* str, Element* element, ScriptState* scriptState, int flags = 0, ScriptState::Fields* fields = 0) const
+      {
+        Type value;
+        bool success = false;
+        if(scriptState) {
+          if(flags & SCRIPT) {
+            Object object = scriptState->getObject(str, fields, element->getContext());
+            if(!object.valid()) {
+              IMVUE_EXCEPTION(ScriptError, "failed to evaluate data %s", str);
+              return;
+            }
+            success = detail::read(object, &value);
+          } else if(flags & TEMPLATED_STRING) {
+            std::string retval;
+            std::stringstream result;
+            std::stringstream ss;
+            bool evaluation = false;
+
+            for(int i = 0;;i++) {
+              if(str[i] == '\0') {
+                break;
+              }
+
+              if(evaluation && std::strncmp(&str[i], "}}", 2) == 0) {
+                Object object = scriptState->getObject(&ss.str()[0], fields, element->getContext());
+                ss = std::stringstream();
+                evaluation = false;
+                result << object.as<ImString>().c_str();
+                i++;
+                continue;
+              }
+
+              if(!evaluation && std::strncmp(&str[i], "{{", 2) == 0) {
+                evaluation = true;
+                i++;
+                continue;
+              }
+
+              if(evaluation) {
+                ss << str[i];
+              } else {
+                result << str[i];
+              }
+            }
+
+            success = detail::read(&result.str()[0], &value);
+          }
+        }
+
+        if(!success) {
+          success = detail::read(str, &value);
+        }
+
+        if(success) {
+          (static_cast<C*>(element)->*mSetter)(value);
+        } else if(required) {
+          IMVUE_EXCEPTION(ElementError, "failed to read required attribute %s", attribute);
+        }
+      }
+
+      bool copy(Element* element, Object& dest) const
+      {
+        (void)element;
+        (void)dest;
+        return false;
+      }
+
+    private:
+      SetterFunc mSetter;
   };
 
   /**
@@ -899,22 +985,41 @@ namespace ImVue {
       }
 
       /**
-       * Register attribute reader
+       * Register attribute
        *
        * @param name attribute name
        * @param memPtr destination to read into (&Element::variable)
        * @param required property is required
        */
-      template<class D>
-      ElementBuilderImpl<C>& attribute(const char* name, D C::* memPtr, bool required = false)
+      template<class Type>
+      ElementBuilderImpl<C>& attribute(const char* name, Type C::* memPtr, bool required = false)
       {
-        mAttributes[name] = new AttributeMemPtr<C, D>(memPtr, required);
+        mAttributes[name] = new AttributeMemPtr<C, Type>(memPtr, required);
         mAttributes[name]->owner = this;
         if(required) {
           mRequiredAttrs.push_back(name);
         }
         return *this;
       }
+
+      /**
+       * Register attribute setter
+       *
+       * @param name attribute name
+       * @param func setter function to use (&Element::setValue)
+       * @param required property is required
+       */
+      template<class Type>
+      ElementBuilderImpl<C>& setter(const char* name, void(C::*func)(Type), bool required = false)
+      {
+        mAttributes[name] = new AttributeSetter<C, Type>(func, required);
+        mAttributes[name]->owner = this;
+        if(required) {
+          mRequiredAttrs.push_back(name);
+        }
+        return *this;
+      }
+
 
       /**
        * Register text reader
