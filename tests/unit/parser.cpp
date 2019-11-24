@@ -120,6 +120,11 @@ class Validator : public ImVue::Element
     {
     }
 
+    void useSetter(int value)
+    {
+      fromSetter = value;
+    }
+
     bool flag;
     float fl;
     double dbl;
@@ -134,6 +139,7 @@ class Validator : public ImVue::Element
     char* ch;
     int arrFixed[3];
     int* arrVariadic;
+    int fromSetter;
 #if defined(WITH_LUA)
     ImVue::Object object;
 #endif
@@ -179,6 +185,7 @@ TEST_P(ReadTypesTest, ParseTypes)
     .attribute("vec4", &Validator::vec4, true)
     .attribute("arr-fixed", &Validator::arrFixed, true)
     .attribute("arr-variadic", &Validator::arrVariadic, true)
+    .setter("setter", &Validator::useSetter, true)
 #if defined(WITH_LUA)
     .attribute("object", &Validator::object)
 #endif
@@ -205,6 +212,7 @@ TEST_P(ReadTypesTest, ParseTypes)
   EXPECT_EQ(el->i16, -32765);
   EXPECT_EQ(el->i32, -65536);
   EXPECT_EQ(el->i64, -1073741823);
+  EXPECT_EQ(el->fromSetter, 100);
   EXPECT_FLOAT_EQ(el->vec2.x, 2);
   EXPECT_FLOAT_EQ(el->vec2.y, 2);
 
@@ -242,6 +250,7 @@ const char* dataStatic = "<template>"
     "float='0.1' double='0.05' "
     "ch='hello' "
     "arr-fixed='{1,2,3}' arr-variadic='{1,2,3,4,5}' "
+    "setter='100' "
     "/>"
 "</template>";
 
@@ -255,6 +264,7 @@ const char* dataBind = "<template>"
     ":arr-fixed='{1,2,3}' :arr-variadic='{1,2,3,4,5}' "
     ":float='0.1' :double='0.05' "
     ":object='{it=\"works\"}'"
+    ":setter='100' "
     "/>"
 "</template>"
 "<script>"
