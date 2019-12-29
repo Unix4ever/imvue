@@ -6,6 +6,7 @@ set(SOURCES
   unit/parser.cpp
   unit/imvue_tests.cpp
   unit/state.cpp
+  unit/style.cpp
 )
 
 include_directories(${GTEST_INCLUDE_DIRS})

@@ -6,7 +6,7 @@ option(BUILD_SAMPLES "build ImVue samples" OFF)
 option(BUILD_IMGUI_FROM_SUBMODULE "build Dear ImGui from submodule" ON)
 option(BUILD_LUA_BINDINGS "build Lua bindings" ON)
 option(BUILD_CSS_STYLING "build css styling" ON)
-option(BUILD_KATANA_FROM_SUBMODULE "build libcss using submodule" ON)
+option(BUILD_CSS_FROM_SUBMODULE "build libcss using submodule" ON)
 option(BUILD_TESTS "build unit test for the project" OFF)
 option(IMVUE_NO_EXCEPTIONS "disable raising exceptions. Use log errors instead" OFF)
 option(IMVUE_USE_LUAJIT "use luajit" OFF)
@@ -40,14 +40,13 @@ if(BUILD_LUA_BINDINGS)
   set(ADDITIONAL_SOURCES src/lua/script.cpp ${ADDITIONAL_SOURCES})
 endif(BUILD_LUA_BINDINGS)
 
-# disable it for now. It's not used, and does not build on windows
-#if(BUILD_KATANA_FROM_SUBMODULE)
-#  set(KATANA_INCLUDE_DIRS katana-parser/src/)
-#  set(KATANA_LIBRARY katana)
-#  include_directories(${KATANA_INCLUDE_DIRS})
-#  file(GLOB_RECURSE sources katana-parser/src/*.c)
-#  add_library(${KATANA_LIBRARY} STATIC ${sources})
-#endif(BUILD_KATANA_FROM_SUBMODULE)
+if(BUILD_CSS_FROM_SUBMODULE)
+  add_subdirectory(libcss)
+  include_directories(libcss/libcss/include)
+  include_directories(libcss/libwapcaplet/include)
+  include_directories(libcss/libparserutils/include)
+  set(ADDITIONAL_LIBS ${ADDITIONAL_LIBS} css wapcaplet parserutils)
+endif(BUILD_CSS_FROM_SUBMODULE)
 
 if(BUILD_TESTS)
   find_package(GTest)
@@ -73,7 +72,10 @@ add_library(${LIB_NAME} STATIC
   src/imvue_element.cpp
   src/imvue_script.cpp
   src/imvue_context.cpp
+  src/imvue_style.cpp
+  src/imvue_layout.cpp
   src/imstring.cpp
+  src/css/select.cpp
 ${ADDITIONAL_SOURCES})
 
 set(IMGUI_SOURCES

@@ -1,3 +1,9 @@
+<style>
+  * {
+    padding: 5px;
+  }
+</style>
+
 <template>
   <window name="root">
     <button v-on:click="self.count = self.count + 1">increase counter</button>

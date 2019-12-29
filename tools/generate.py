@@ -84,6 +84,7 @@ def parse_elements(filename, config):
 
     blacklist = [re.compile(value) for value in config.get('blacklist', [])]
     rewrites = config.get('rewrites', {})
+    rewrite_fields = config.get('rewrite_fields', {})
     rules = config.get('rules', {})
     elements_rules = config.get('elements_rules', {})
 
@@ -187,9 +188,14 @@ def parse_elements(filename, config):
                     field_type.strip()
 
                     param_name = re.sub(r'\[\d*\]', '', parts[-1])
+                    if param_name in rewrite_fields:
+                        param_name = rewrite_fields[param_name]
+
                     attr_name = param_name.replace('_', '-')
                     param_read = param_name
                     field_name = parts[-1]
+                    if field_name in rewrite_fields:
+                        field_name = rewrite_fields[field_name]
                     array_size = re.match(r'\w*\[(\d+)\]', parts[-1])
                     if array_size:
                         (array_size,) = array_size.groups()
@@ -204,6 +210,7 @@ def parse_elements(filename, config):
                         param_name = '&' + param_name
                         default = None
 
+                    define = field_name != 'size'
                     params.append({
                         'default': default,
                         'attr_name': attr_name,
@@ -214,10 +221,11 @@ def parse_elements(filename, config):
                         'param_name': param_name,
                         'param_read': param_read,
                         'required': param_read in required_fields,
+                        'define': define
                     })
 
                     initializer, destructor = gen_init_destroy(field_type, field_name, param_read, default)
-                    if initializer:
+                    if initializer and define:
                         initializers.append(initializer)
 
                     if destructor:

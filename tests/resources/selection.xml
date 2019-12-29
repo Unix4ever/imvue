@@ -1,0 +1,230 @@
+<style>
+* {
+  background-color: #FF0000;
+}
+
+.name-select > test {
+  background-color: #00FF00;
+}
+
+.test-by-class {
+  background-color: #00FF00;
+}
+
+test.match.all.classes {
+  background-color: #00FF00;
+}
+
+#unique {
+  background-color: #00FF00;
+}
+
+test#classid.classid {
+  background-color: #00FF00;
+}
+
+.nested test {
+  background-color: #00FF00;
+}
+
+.direct-parent > test {
+  background-color: #00FF00;
+}
+
+.next-element > .previous + .next {
+  background-color: #00FF00;
+}
+
+.previous-element > .next ~ .previous {
+  background-color: #00FF00;
+}
+
+test[with-attribute] {
+  background-color: #00FF00;
+}
+
+test[with-attribute-equal="some-value"] {
+  background-color: #00FF00;
+}
+
+.states-hover > test:hover {
+  background-color: #00FF00;
+}
+
+.states-active > test:active {
+  background-color: #00FF00;
+}
+
+.states-disabled > test:disabled {
+  background-color: #00FF00;
+}
+
+.states-checked > test:checked {
+  background-color: #00FF00;
+  }
+
+.states-focus > test:focus {
+  background-color: #00FF00;
+  }
+
+.states-link > test:link {
+  background-color: #00FF00;
+}
+
+.states-visited > test:visited {
+  background-color: #00FF00;
+}
+
+.array > :first-child {
+  background-color: #00FF00;
+}
+
+.array > :nth-child(3) {
+  background-color: #00FF00;
+  }
+
+.array > :last-child {
+  background-color: #00FF00;
+}
+
+.array-of-type > test:first-of-type {
+  background-color: #00FF00;
+}
+
+.array-of-type > test:last-of-type {
+  background-color: #00FF00;
+}
+
+</style>
+<template>
+  <window name="selection test">
+    <div class="name-select">
+      <test/>
+      <button>the button</button>
+    </div>
+    <div class="class-select">
+      <test/>
+      <test class="test-by-class"/>
+      <test class="well test-by-class"/>
+      <test class="nope"/>
+    </div>
+    <div class="id-select">
+      <test/>
+      <test/>
+      <test id="unique"/>
+    </div>
+    <div class="matching-all-classes">
+      <test/>
+      <test class="match all classes"/>
+      <test class="match for sure all classes"/>
+      <test class="match"/>
+    </div>
+    <div class="class-plus-id">
+      <test id="classid"/>
+      <test id="classid" class="classid"/>
+      <test class="classid"/>
+    </div>
+    <div class="nested">
+      <test/>
+      <div>
+        <test/>
+      </div>
+    </div>
+    <div class="direct-parent">
+      <test/>
+      <div>
+        <test/>
+      </div>
+      <test/>
+    </div>
+    <div class="next-element">
+      <test class="next"/>
+      <test class="next"/>
+      <test class="previous"/>
+      <test class="next"/>
+      <test class="previous"/>
+      <test class="next"/>
+    </div>
+    <div class="previous-element">
+      <test class="next"/>
+      <test class="next"/>
+      <test class="previous"/>
+      <test class="next"/>
+      <test class="previous"/>
+      <test class="next"/>
+    </div>
+    <div class="attr-defined">
+      <test random-attr="no"/>
+      <test with-attribute="ok"/>
+      <test/>
+    </div>
+    <div class="attr-equal">
+      <test with-attribute-equal="some-value"/>
+      <test with-attribute-equal="ok"/>
+      <test/>
+    </div>
+    <div class="states-hover">
+      <test state="hover"/>
+      <test state="active"/>
+      <test state="disabled"/>
+      <test state="checked"/>
+    </div>
+    <div class="states-active">
+      <test state="hover"/>
+      <test state="active"/>
+      <test state="disabled"/>
+      <test state="checked"/>
+    </div>
+    <div class="states-disabled">
+      <test state="hover"/>
+      <test state="active"/>
+      <test state="disabled"/>
+      <test state="checked"/>
+    </div>
+    <div class="states-checked">
+      <test state="hover"/>
+      <test state="active"/>
+      <test state="disabled"/>
+      <test state="checked"/>
+    </div>
+    <div class="states-focus">
+      <test state="hover"/>
+      <test state="active"/>
+      <test state="disabled"/>
+      <test state="checked"/>
+      <test state="focus"/>
+    </div>
+    <div class="states-link">
+      <test state="hover"/>
+      <test state="active"/>
+      <test state="disabled"/>
+      <test state="checked"/>
+      <test state="link"/>
+    </div>
+    <div class="states-visited">
+      <test state="hover"/>
+      <test state="active"/>
+      <test state="disabled"/>
+      <test state="checked"/>
+      <test state="visited"/>
+    </div>
+    <div class="array">
+      <button>a</button>
+      <test/>
+      <test/>
+      <test/>
+      <button>a</button>
+      <test/>
+      <test/>
+    </div>
+    <div class="array-of-type">
+      <button>a</button>
+      <test/>
+      <test/>
+      <test/>
+      <button>a</button>
+      <test/>
+      <test/>
+    </div>
+  </window>
+</template>

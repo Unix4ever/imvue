@@ -29,9 +29,10 @@ SOFTWARE.
 
 namespace ImVue {
 
-  EventHandler::EventHandler(const char* handlerName, const char* script)
+  EventHandler::EventHandler(Element* element, const char* handlerName, const char* script)
     : mHandlerName(handlerName)
     , mScript(script)
+    , mElement(element)
   {
   }
 
@@ -55,8 +56,8 @@ namespace ImVue {
     }
   }
 
-  InputHandler::InputHandler(const char* handlerName, const char* script)
-    : EventHandler(handlerName, script)
+  InputHandler::InputHandler(Element* element, const char* handlerName, const char* script)
+    : EventHandler(element, handlerName, script)
     , mModifiers(0)
     , mExact(false)
   {
@@ -82,8 +83,8 @@ namespace ImVue {
     }
   }
 
-  MouseEventHandler::MouseEventHandler(const char* handlerName, const char* script)
-    : InputHandler(handlerName, script)
+  MouseEventHandler::MouseEventHandler(Element* element, const char* handlerName, const char* script)
+    : InputHandler(element, handlerName, script)
     , mType(Click)
     , mMouseButton(0)
     , mHovered(false)
@@ -96,6 +97,8 @@ namespace ImVue {
 
     if(checkProp("click")) {
       mType = Click;
+    } else if(checkProp("doubleclick")) {
+      mType = DoubleClick;
     } else if(checkProp("mousedown")) {
       mType = MouseDown;
     } else if(checkProp("mouseup")) {
@@ -109,7 +112,7 @@ namespace ImVue {
 
   bool MouseEventHandler::check()
   {
-    bool hovered = ImGui::IsItemHovered();
+    bool hovered = mElement->isHovered();
     bool changed = mHovered != hovered;
     mHovered = hovered;
 
@@ -120,7 +123,10 @@ namespace ImVue {
     bool trigger = false;
     switch(mType) {
       case Click:
-        trigger = ImGui::IsItemClicked(mMouseButton);
+        trigger = ImGui::IsMouseClicked(mMouseButton);
+        break;
+      case DoubleClick:
+        trigger = ImGui::IsMouseDoubleClicked(mMouseButton);
         break;
       case MouseDown:
         trigger = ImGui::IsMouseDown(mMouseButton);
@@ -156,8 +162,8 @@ namespace ImVue {
 
   const KeyboardEventHandler::KeyMap KeyboardEventHandler::keyMap = KeyboardEventHandler::init();
 
-  KeyboardEventHandler::KeyboardEventHandler(const char* handlerName, const char* script)
-    : InputHandler(handlerName, script)
+  KeyboardEventHandler::KeyboardEventHandler(Element* element, const char* handlerName, const char* script)
+    : InputHandler(element, handlerName, script)
     , mKeyIndex(-1)
     , mType(Down)
   {
@@ -214,6 +220,9 @@ namespace ImVue {
     , ref(NULL)
     , enabledAttr(NULL)
     , key(NULL)
+    , display(CSS_DISPLAY_BLOCK)
+    , index(-1)
+    , bgColor(0)
     , mNode(0)
     , mParent(0)
     , mFactory(0)
@@ -223,11 +232,22 @@ namespace ImVue {
     , mScriptState(NULL)
     , mCtx(0)
     , mScriptContext(0)
+    , mStyle(this)
     , mInvalidFlags(0)
-    , mFlags(0)
+    , mFlags(BUTTON)
+    , mState(0)
     , mRequiredAttrsCount(0)
     , mConfigured(false)
   {
+    padding[0] = -1.0f;
+    padding[1] = -1.0f;
+    padding[2] = -1.0f;
+    padding[3] = -1.0f;
+
+    margins[0] = FLT_MIN;
+    margins[1] = FLT_MIN;
+    margins[2] = FLT_MIN;
+    margins[3] = FLT_MIN;
   }
 
   Element::~Element()
@@ -237,7 +257,9 @@ namespace ImVue {
 
     if(mScriptState) {
       for(Element::ReactiveFields::const_iterator iter = mReactiveFields.begin(); iter != mReactiveFields.end(); ++iter) {
-        IM_ASSERT(mScriptState->removeListener(iter->first, this) && "failed to remove listener");
+        bool success = mScriptState->removeListener(iter->first, this);
+        (void)success;
+        IM_ASSERT(success && "failed to remove listener");
       }
     }
 
@@ -268,6 +290,12 @@ namespace ImVue {
     if(mScriptContext && mScriptContext->owner == this) {
       delete mScriptContext;
     }
+
+    for(Classes::iterator iter = classes.begin(); iter != classes.end(); iter++) {
+      ImGui::MemFree(iter->first);
+    }
+
+    classes.clear();
   }
 
   void Element::configure(rapidxml::xml_node<>* node, Context* ctx, ScriptState::Context* sctx, Element* parent)
@@ -281,6 +309,9 @@ namespace ImVue {
     mNode = node;
     mFactory = ctx->factory;
     mTextureManager = ctx->texture;
+    if(ImStricmp(node->name(), "window") == 0) {
+      mFlags |= WINDOW;
+    }
     mConfigured = build();
   }
 
@@ -290,6 +321,120 @@ namespace ImVue {
 
   const Attribute* Element::getAttribute(const char* attrID) const {
     return mBuilder->get(attrID);
+  }
+
+  bool Element::evalAttribute(const char* id, char** dest)
+  {
+    *dest = 0;
+    if(!mNode) {
+      return false;
+    }
+
+    int flags = 0;
+
+    rapidxml::xml_attribute<>* attr = mNode->first_attribute(id);
+    if(!attr) {
+      char* scripted = (char*)ImGui::MemAlloc(strlen(id) + 2);
+      scripted[0] = ':';
+      strcpy(&scripted[1], id);
+      attr = mNode->first_attribute(scripted);
+      ImGui::MemFree(scripted);
+
+      if(!attr) {
+        return false;
+      }
+      flags |= Attribute::SCRIPT;
+    }
+
+    return evaluateString(attr->value(), this, mScriptState, flags, 0, dest);
+  }
+
+  void Element::setSize(const ImVec2& s)
+  {
+    size = s;
+    if(mFlags & WINDOW) {
+      ImGui::SetNextWindowSize(size);
+    } // widgets have no common method to set size unfortunately
+  }
+
+  void Element::setInlineStyle(char* style)
+  {
+    mStyle.setInlineStyle(style);
+    ImGui::MemFree(style);
+    invalidateFlags(Element::STYLE);
+  }
+
+  void Element::setClasses(const char* cls, int flags, ScriptState::Fields* fields) {
+    for(Classes::iterator iter = classes.begin(); iter != classes.end(); iter++) {
+      ImGui::MemFree(iter->first);
+    }
+
+    classes.clear();
+    if(flags & Attribute::SCRIPT) {
+      Object classesList = mScriptState->getObject(cls, fields, mScriptContext);
+      for(Object::iterator iter = classesList.begin(); iter != classesList.end(); ++iter) {
+        classes[ImStrdup(iter.value.as<ImString>().c_str())] = true;
+      }
+    } else {
+      ImVector<char*> values;
+      if(detail::parse_array(cls, values, ' ')) {
+        for(int i = 0; i < values.size(); i++) {
+          classes[values[i]] = true;
+        }
+      }
+    }
+    mStyle.updateClassCache();
+    invalidateFlags(Element::STYLE);
+  }
+
+  bool Element::isHovered(ImGuiHoveredFlags flags) const
+  {
+    ImGuiContext& g = *ImGui::GetCurrentContext();
+    ImGuiWindow* window = g.CurrentWindow;
+    if (g.NavDisableMouseHover && !g.NavDisableHighlight)
+      return ImGui::IsItemFocused();
+
+    // Test for bounding box overlap, as updated as ItemAdd()
+    if (!(window->DC.LastItemStatusFlags & ImGuiItemStatusFlags_HoveredRect) && !ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMin() + getSize()).Contains(ImGui::GetIO().MousePos) )
+      return false;
+    IM_ASSERT((flags & (ImGuiHoveredFlags_RootWindow | ImGuiHoveredFlags_ChildWindows)) == 0);   // Flags not supported by this function
+
+    // Test if we are hovering the right window (our window could be behind another window)
+    // [2017/10/16] Reverted commit 344d48be3 and testing RootWindow instead. I believe it is correct to NOT test for RootWindow but this leaves us unable to use IsItemHovered() after EndChild() itself.
+    // Until a solution is found I believe reverting to the test from 2017/09/27 is safe since this was the test that has been running for a long while.
+    //if (g.HoveredWindow != window)
+    //    return false;
+    if (g.HoveredRootWindow != window->RootWindow && !(flags & ImGuiHoveredFlags_AllowWhenOverlapped))
+      return false;
+
+    // Test if another item is active (e.g. being dragged)
+    if (!(flags & ImGuiHoveredFlags_AllowWhenBlockedByActiveItem))
+      if (g.ActiveId != 0 && g.ActiveId != window->DC.LastItemId && !g.ActiveIdAllowOverlap && g.ActiveId != window->MoveId)
+        return false;
+
+    // Test if interactions on this window are blocked by an active popup or modal.
+    // The ImGuiHoveredFlags_AllowWhenBlockedByPopup flag will be tested here.
+    if (g.NavWindow)
+      if (ImGuiWindow* focused_root_window = g.NavWindow->RootWindow)
+        if (focused_root_window->WasActive && focused_root_window != window->RootWindow)
+        {
+          // For the purpose of those flags we differentiate "standard popup" from "modal popup"
+          // NB: The order of those two tests is important because Modal windows are also Popups.
+          if (focused_root_window->Flags & ImGuiWindowFlags_Modal)
+            return false;
+          if ((focused_root_window->Flags & ImGuiWindowFlags_Popup) && !(flags & ImGuiHoveredFlags_AllowWhenBlockedByPopup))
+            return false;
+        }
+
+    // Test if the item is disabled
+    if ((window->DC.ItemFlags & ImGuiItemFlags_Disabled) && !(flags & ImGuiHoveredFlags_AllowWhenDisabled))
+      return false;
+
+    // Special handling for the dummy item after Begin() which represent the title bar or tab.
+    // When the window is collapsed (SkipItems==true) that last item will never be overwritten so we need to detect the case.
+    if (window->DC.LastItemId == window->MoveId && window->WriteAccessed)
+      return false;
+    return true;
   }
 
   void Element::invalidateFlags(unsigned int flags) {
@@ -356,6 +501,10 @@ namespace ImVue {
       return true;
     }
 
+    if(ImStricmp(attrID, "class") == 0) {
+      setClasses(value, flags, fields);
+    }
+
     return false;
   }
 
@@ -401,6 +550,9 @@ namespace ImVue {
       IMVUE_EXCEPTION(ElementError, "failed to build element %s, missing required properties %s", getType(), missed.str().c_str());
       return false;
     }
+
+    mStyle.compute(this);
+    invalidateFlags(Element::STYLE);
     return enabled;
   }
 
@@ -408,18 +560,87 @@ namespace ImVue {
   {
     if(mInvalidFlags & Element::BUILD) {
       mConfigured = build();
-      mInvalidFlags = 0;
+      mInvalidFlags ^= Element::BUILD;
+    }
+
+    if(!mConfigured) {
+      return;
+    }
+
+    if(mInvalidFlags & Element::STYLE) {
+      if(mStyle.compute(this)) {
+        for(size_t i = 0; i < mChildren.size(); ++i) {
+          mChildren[i]->invalidateFlags(Element::STYLE);
+        }
+      }
+      mInvalidFlags ^= Element::STYLE;
     }
 
     computeProperties();
     if(!enabled) {
+      setState(HIDDEN);
       return;
     }
+
+    if(display == CSS_DISPLAY_NONE) {
+      setState(HIDDEN);
+      return;
+    }
+
+    resetState(HIDDEN);
+
     if(key) {
       ImGui::PushID(ImHashStr(key));
     }
 
-    renderBody();
+    mStyle.begin(this);
+
+    Layout* layout = isPseudoElement() ? 0 : mCtx->layout;
+    if(layout)
+      layout->beginElement(this);
+
+    pos = ImGui::GetCursorPos();
+    ImGuiWindow* window = GetCurrentWindowNoDefault();
+    if(window) {
+      // render decoration
+      mStyle.decoration.render(
+          ImRect(
+            window->Pos - window->Scroll + pos,
+            window->Pos - window->Scroll + pos + getSize()
+          )
+      );
+    }
+
+    try {
+      renderBody();
+    } catch (...) {
+      mStyle.end();
+      throw;
+    }
+
+    computedSize = ImGui::GetItemRectMax() - ImGui::GetItemRectMin();
+    if(layout)
+      layout->endElement(this);
+
+    mStyle.end();
+    bool hovered = isHovered();
+
+    if(ImGui::IsItemActive() || (hovered && ImGui::IsMouseDown(0) && (mFlags & BUTTON))) {
+      resetState(HOVERED);
+      setState(ACTIVE);
+    } else if(hovered) {
+      resetState(ACTIVE);
+      setState(HOVERED);
+    } else {
+      resetState(HOVERED);
+      resetState(ACTIVE);
+    }
+
+    if(ImGui::IsItemFocused()) {
+      setState(FOCUSED);
+    } else {
+      resetState(FOCUSED);
+    }
 
     if(key) {
       ImGui::PopID();
@@ -432,6 +653,11 @@ namespace ImVue {
         }
       }
     }
+  }
+
+  ContainerElement* Element::getParent()
+  {
+    return mParent ? static_cast<ContainerElement*>(mParent) : NULL;
   }
 
   void Element::computeProperties()
@@ -506,7 +732,7 @@ namespace ImVue {
       return;
     }
 
-    EventHandler* handler = builder->createHandler(handlerName, fullName, value);
+    EventHandler* handler = builder->createHandler(this, handlerName, fullName, value);
     if(!handler) {
       IMVUE_EXCEPTION(ElementError, "failed to create handler of type %s", handlerName);
       return;
@@ -549,8 +775,23 @@ namespace ImVue {
   }
 
   void ContainerElement::renderChildren() {
+    bool pseudoElement = isPseudoElement();
+    Layout* backup = mCtx->layout;
+    if(!pseudoElement) {
+      mCtx->layout = &mLayout;
+      mLayout.begin(this);
+    }
+
+    int i = 0;
     for(Elements::iterator el = mChildren.begin(); el != mChildren.end(); el++) {
-      (*el)->render();
+      Element* element = *el;
+      element->index = i++;
+      element->render();
+    }
+
+    if(!pseudoElement) {
+      mLayout.end();
+      mCtx->layout = backup;
     }
   }
 
@@ -570,7 +811,6 @@ namespace ImVue {
     rapidxml::xml_node<>* root = doc ? doc : mNode;
 
     for (rapidxml::xml_node<>* node  = root->first_node(); node; node = node->next_sibling()) {
-
       Element* e = NULL;
       // v-for case is special: we don't need to create a single element for it
       const rapidxml::xml_attribute<>* vfor = node->first_attribute("v-for");
@@ -586,9 +826,9 @@ namespace ImVue {
           throw;
         }
       } else {
-        e = createElement(node);
+        e = createElement(node, NULL, this);
         if(!e) {
-          IMVUE_EXCEPTION(ElementError, "failed to create element %s", node->name());
+          IMVUE_EXCEPTION(ElementError, "failed to create element '%s'", node->name());
           continue;
         }
 
@@ -669,6 +909,8 @@ namespace ImVue {
 
     size_t index = 0;
 
+    mStyle.compute(this);
+
     for(Object::iterator iter = object.begin(); iter != object.end(); ++iter, ++index) {
 
       ScriptState::FieldHash hash = mScriptState->hash(iter.key.as<ImString>().get());
@@ -697,7 +939,7 @@ namespace ImVue {
           c->add(keyVar, iter.key, ScriptState::Variable::KEY);
         }
 
-        Element* e = createElement(mNode, c);
+        Element* e = createElement(mNode, c, this);
         if(!e) {
           IMVUE_EXCEPTION(ElementError, "failed to create element %s", mNode->name());
           return false;
@@ -712,6 +954,8 @@ namespace ImVue {
         mElementsByKey[hash] = e;
         visited[hash] = true;
       }
+
+      mChildren[index]->invalidateFlags(Element::STYLE);
     }
 
     for(size_t i = mChildren.size(); i > index; --i) {
@@ -740,9 +984,15 @@ namespace ImVue {
 
   void ConditionChain::pushChild(Element* element, rapidxml::xml_node<>* node)
   {
+    if(!mScriptState) {
+      IMVUE_EXCEPTION(ElementError, "conditionals are supported only with script enabled");
+      return;
+    }
+
     IM_ASSERT(element->enabledAttr != NULL && "element does not have enabledAttr defined, why is it in the ConditionChain?");
     if(mDefault) {
       IMVUE_EXCEPTION(ElementError, "malformed condition chain: v-else/v-else-if/v-if after the last v-else");
+      return;
     }
 
     if(ImStricmp(element->enabledAttr, "v-else") == 0) {
@@ -758,6 +1008,7 @@ namespace ImVue {
 
     mChildren.push_back(element);
     element->setParent(this);
+    element->invalidateFlags(Element::STYLE);
     invalidateFlags(Element::BUILD);
   }
 
@@ -840,19 +1091,20 @@ namespace ImVue {
 
   void Slot::configure(rapidxml::xml_node<>* node, Context* ctx, ScriptState::Context* sctx, Element* parent)
   {
-    (void)parent;
+    (void)node;
     if(!ctx->root || (ctx->root->getFlags() & Element::COMPONENT) == 0) {
       IMVUE_EXCEPTION(ElementError, "slot must be a child of a component");
       return;
     }
 
     rapidxml::xml_node<>* n = ctx->root->node();
-    if(!n->first_node() && !n->value()) {
+
+    if(!n->first_node() && *n->value() == 0) {
       return;
     }
 
     mBuilder = ctx->factory->get("slot");
-    Element::configure(node, ctx->parent ? ctx->parent : ctx, sctx, ctx->root);
+    PseudoElement::configure(n, ctx, sctx, parent);
   }
 
 }
