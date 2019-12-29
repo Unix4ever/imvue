@@ -30,6 +30,8 @@ SOFTWARE.
 #include "imvue_script.h"
 #include "imvue_errors.h"
 #include "imvue_context.h"
+#include "imvue_style.h"
+#include "imvue_layout.h"
 #include <vector>
 #include <map>
 #include <iostream>
@@ -59,6 +61,11 @@ namespace ImVue {
    * ID for element text pseudo-attribute name
    */
   static const char* TEXT_ID = "@text";
+
+  /**
+   * TEXT node ID
+   */
+  static const char* TEXT_NODE = "__textnode__";
 
   // attribute converting utilities
   // used for parsing statically defined fields as ints/floats/arrays etc
@@ -146,7 +153,7 @@ namespace ImVue {
     }
 
     template<class C>
-    bool parse_array(const char* value, ImVector<C>& values);
+    bool parse_array(const char* value, ImVector<C>& values, char separator = ',');
 
     inline bool read(const char* value, ImGuiID* dest) {
       if(!str_to_number<ImGuiID>(value, dest)) {
@@ -236,7 +243,7 @@ namespace ImVue {
     typename std::enable_if<!std::is_arithmetic<C>::value, bool>::type
     read(const char* value, C* dest)
     {
-      IM_ASSERT("Detected unsupported field");
+      IM_ASSERT(false && "Detected unsupported field");
       (void)value;
       (void)dest;
       // default unsupported behaviour
@@ -244,7 +251,7 @@ namespace ImVue {
     }
 
     template<class C>
-    bool parse_array(const char* value, ImVector<C>& values)
+    bool parse_array(const char* value, ImVector<C>& values, char separator)
     {
       char endsym = 0;
       const char* start = value;
@@ -272,7 +279,7 @@ namespace ImVue {
 
       end = (endsym == 0 ? end : ImStrchrRange(value, end, endsym)) - 1;
       while(start < end + 1) {
-        const char* next = ImStrchrRange(start, end, ',');
+        const char* next = ImStrchrRange(start, end, separator);
         if(next == 0) {
           next = end + 1;
         }
@@ -291,12 +298,11 @@ namespace ImVue {
         }
 
         memcpy(&part[0], start, len);
-        part[len + 1] = '\0';
+        part[len] = '\0';
 
-        C element;
-        if(read(&part[0], &element)) {
-          values.push_back(element);
-        } else {
+        values.resize(values.size() + 1);
+        values[values.size() - 1] = 0;
+        if(!read(&part[0], &values[values.size() - 1])) {
           return false;
         }
         start = next + 1;
@@ -410,7 +416,7 @@ namespace ImVue {
     typename std::enable_if<!std::is_arithmetic<C>::value, bool>::type
     read(Object& value, C* dest)
     {
-      IM_ASSERT("Detected unsupported field");
+      IM_ASSERT(false && "Detected unsupported field");
       (void)value;
       (void)dest;
       // default unsupported behaviour
@@ -433,15 +439,32 @@ namespace ImVue {
   class Element {
 
     public:
+      typedef std::vector<Element*> Elements;
 
       enum InvalidationFlag {
-        BUILD = 1 << 0
+        BUILD = 1 << 0,
+        STYLE = 1 << 1,
+        MODEL = 1 << 2
+      };
+
+      // mutually excluding element states
+      enum ElementState {
+        HIDDEN   = 1 << 0,
+        ACTIVE   = 1 << 1,
+        HOVERED  = 1 << 2,
+        DISABLED = 1 << 3,
+        CHECKED  = 1 << 4,
+        LINK     = 1 << 5,
+        VISITED  = 1 << 6,
+        FOCUSED  = 1 << 7
       };
 
       enum Flag {
         CONTAINER       = 1 << 0,
         PSEUDO_ELEMENT  = 1 << 1,
-        COMPONENT       = 1 << 2
+        COMPONENT       = 1 << 2,
+        WINDOW          = 1 << 3,
+        BUTTON          = 1 << 4
       };
 
       typedef std::unordered_map<ScriptState::FieldHash, bool> ReactiveFields;
@@ -470,16 +493,33 @@ namespace ImVue {
       inline void setParent(Element* element) { mParent = element; }
 
       /**
+       * Get parent
+       */
+      ContainerElement* getParent();
+
+      /**
        * Enable element
        */
       inline void enable() {
         if(!mConfigured)
           invalidateFlags(Element::BUILD);
+
+        invalidateFlags(Element::STYLE);
         enabled = true;
       }
 
       /**
-       * Get context
+       * Get element ctx
+       */
+      inline Context* context()
+      {
+        return mCtx;
+      }
+
+      /**
+       * Get element script context
+       *
+       * @param recursive traverse to parent context
        */
       inline ScriptState::Context* getContext(bool recursive = false) {
         if(mScriptContext) {
@@ -526,11 +566,37 @@ namespace ImVue {
       }
 
       /**
+       * Check if Element is pseudo element
+       */
+      inline bool isPseudoElement() const {
+        return (mFlags & Element::PSEUDO_ELEMENT) != 0;
+      }
+
+      /**
        * Get attribute interface by field id
        *
        * @param id field id
        */
       const Attribute* getAttribute(const char* id) const;
+
+      /**
+       * Check if underlying node has attribute
+       *
+       * @param id attribute name
+       */
+      inline bool hasAttribute(const char* name) const {
+        return mNode ? mNode->first_attribute(name) != 0 : false;
+      }
+
+      /**
+       * Evaluates attribute
+       *
+       * @param id attribute name
+       * @param dest Destination to write to
+       *
+       * @returns true if succeed
+       */
+      bool evalAttribute(const char* id, char** dest);
 
       /**
        * Exposed mainly for tests
@@ -540,6 +606,57 @@ namespace ImVue {
       }
 
       inline rapidxml::xml_node<>* node() { return mNode; }
+
+      void setSize(const ImVec2& size);
+
+      inline ImVec2 getSize() const {
+        ImVec2 res = size;
+        if(res.x <= 0) {
+          res.x = computedSize.x;
+        }
+
+        if(res.y <= 0) {
+          res.y = computedSize.y;
+        }
+
+        return res;
+      }
+
+      void setInlineStyle(char* style);
+
+      void setClasses(const char* cls, int flags, ScriptState::Fields* fields);
+
+      bool isHovered(ImGuiHoveredFlags flags = 0) const;
+
+      inline bool hasClass(const char* cls) const
+      {
+        return classes.find(const_cast<char*>(cls)) != classes.end();
+      }
+
+      inline ComputedStyle* style() {
+        return &mStyle;
+      }
+
+      inline bool visible() const {
+        return enabled && display != CSS_DISPLAY_NONE;
+      }
+
+      inline bool hasState(ElementState s) {
+        return (mState & s) != 0;
+      }
+
+      inline ImRect getMarginsRect() const {
+        return ImRect(
+          ImVec2(
+            margins[1] == FLT_MIN ? 0 : margins[1],
+            margins[0] == FLT_MIN ? 0 : margins[0]
+          ),
+          ImVec2(
+            margins[2] == FLT_MIN ? 0 : margins[2],
+            margins[3] == FLT_MIN ? 0 : margins[3]
+          )
+        );
+      }
 
       // public properties
 
@@ -568,7 +685,38 @@ namespace ImVue {
        */
       char* key;
 
+      // style related variables
+
+      ImVec2 pos;
+      /**
+       * Common size definition
+       */
+      ImVec2 size;
+
+      ImVec2 computedSize;
+
+      /**
+       * Element display type
+       */
+      uint16_t display;
+
+      /**
+       * Element index
+       */
+      int index;
+      int state;
+
+      float padding[4];
+      float margins[4];
+
+      ImU32 bgColor;
+
+      typedef std::map<char*, bool, CmpChar> Classes;
+      Classes classes;
+
     protected:
+
+      friend class ContainerElement;
 
       void bindListeners(ScriptState::Fields& fields, const char* attribute = 0, unsigned int flags = 0);
 
@@ -598,9 +746,29 @@ namespace ImVue {
 
       void addHandler(const char* name, const char* value, const ElementBuilder* builder);
 
+      inline void setState(ElementState s)
+      {
+        if((mState & s) == 0) {
+          mState |= s;
+          invalidateFlags(Element::STYLE);
+        }
+        for(size_t i = 0; i < mChildren.size(); ++i) {
+          mChildren[i]->invalidateFlags(Element::STYLE);
+        }
+      }
+
+      inline void resetState(ElementState s) {
+        if((mState & s) != 0) {
+          mState ^= s;
+          invalidateFlags(Element::STYLE);
+        }
+        for(size_t i = 0; i < mChildren.size(); ++i) {
+          mChildren[i]->invalidateFlags(Element::STYLE);
+        }
+      }
+
       rapidxml::xml_node<>* mNode;
 
-      typedef std::vector<Element*> Elements;
       typedef std::map<const char*, EventHandler*> Handlers;
 
       Handlers mHandlers;
@@ -615,9 +783,11 @@ namespace ImVue {
       DirtyProperties mDirtyProperties;
       Context* mCtx;
       ScriptState::Context* mScriptContext;
+      ComputedStyle mStyle;
 
       unsigned int mInvalidFlags;
       unsigned int mFlags;
+      unsigned int mState;
       int mRequiredAttrsCount;
 
       bool mConfigured;
@@ -664,7 +834,7 @@ namespace ImVue {
        * @param flags evaluation flags
        */
       virtual void read(
-          const char* attribute,
+          const char* attr,
           const char* str,
           Element* element,
           ScriptState* scriptState,
@@ -685,6 +855,62 @@ namespace ImVue {
       bool required;
   };
 
+  template<typename Type>
+  bool evaluateString(const char* str, Element* element, ScriptState* scriptState, int flags, ScriptState::Fields* fields, Type* value)
+  {
+    bool success = false;
+    if(scriptState) {
+      if(flags & Attribute::SCRIPT) {
+        Object object = scriptState->getObject(str, fields, element->getContext());
+        if(!object.valid()) {
+          IMVUE_EXCEPTION(ScriptError, "failed to evaluate data %s", str);
+          return false;
+        }
+        success = detail::read(object, value);
+      } else if(flags & Attribute::TEMPLATED_STRING) {
+        std::string retval;
+        std::stringstream result;
+        std::stringstream ss;
+        bool evaluation = false;
+
+        for(int i = 0;;i++) {
+          if(str[i] == '\0') {
+            break;
+          }
+
+          if(evaluation && std::strncmp(&str[i], "}}", 2) == 0) {
+            Object object = scriptState->getObject(&ss.str()[0], fields, element->getContext());
+            ss = std::stringstream();
+            evaluation = false;
+            result << object.as<ImString>().c_str();
+            i++;
+            continue;
+          }
+
+          if(!evaluation && std::strncmp(&str[i], "{{", 2) == 0) {
+            evaluation = true;
+            i++;
+            continue;
+          }
+
+          if(evaluation) {
+            ss << str[i];
+          } else {
+            result << str[i];
+          }
+        }
+
+        success = detail::read(&result.str()[0], value);
+      }
+    }
+
+    if(!success) {
+      success = detail::read(str, value);
+    }
+
+    return success;
+  }
+
   /**
    * MemPtr implementation of attribute reader
    */
@@ -702,56 +928,7 @@ namespace ImVue {
       void read(const char* attribute, const char* str, Element* element, ScriptState* scriptState, int flags = 0, ScriptState::Fields* fields = 0) const
       {
         D* dest = &(static_cast<C*>(element)->*mMemPtr);
-        bool success = false;
-        if(scriptState) {
-          if(flags & SCRIPT) {
-            Object object = scriptState->getObject(str, fields, element->getContext());
-            if(!object.valid()) {
-              IMVUE_EXCEPTION(ScriptError, "failed to evaluate data %s", str);
-              return;
-            }
-            success = detail::read(object, dest);
-          } else if(flags & TEMPLATED_STRING) {
-            std::string retval;
-            std::stringstream result;
-            std::stringstream ss;
-            bool evaluation = false;
-
-            for(int i = 0;;i++) {
-              if(str[i] == '\0') {
-                break;
-              }
-
-              if(evaluation && std::strncmp(&str[i], "}}", 2) == 0) {
-                Object object = scriptState->getObject(&ss.str()[0], fields, element->getContext());
-                ss = std::stringstream();
-                evaluation = false;
-                result << object.as<ImString>().c_str();
-                i++;
-                continue;
-              }
-
-              if(!evaluation && std::strncmp(&str[i], "{{", 2) == 0) {
-                evaluation = true;
-                i++;
-                continue;
-              }
-
-              if(evaluation) {
-                ss << str[i];
-              } else {
-                result << str[i];
-              }
-            }
-
-            success = detail::read(&result.str()[0], dest);
-          }
-        }
-
-        if(!success) {
-          success = detail::read(str, dest);
-        }
-
+        bool success = evaluateString(str, element, scriptState, flags, fields, dest);
         if(!success && required) {
           IMVUE_EXCEPTION(ElementError, "failed to read required attribute %s", attribute);
         }
@@ -766,6 +943,19 @@ namespace ImVue {
     private:
       D C::* mMemPtr;
   };
+
+  template<typename Type>
+  typename std::enable_if<std::is_pointer<Type>::value, Type>::type initVariable()
+  {
+    return 0;
+  }
+
+  template<typename Type>
+  typename std::enable_if<!std::is_pointer<Type>::value, Type>::type initVariable()
+  {
+    static_assert(std::is_trivially_constructible<Type>::value, "setter can only be used with trivially constructible types");
+    return Type();
+  }
 
   /**
    * Setter implementation of attribute reader
@@ -785,56 +975,8 @@ namespace ImVue {
 
       void read(const char* attribute, const char* str, Element* element, ScriptState* scriptState, int flags = 0, ScriptState::Fields* fields = 0) const
       {
-        Type value;
-        bool success = false;
-        if(scriptState) {
-          if(flags & SCRIPT) {
-            Object object = scriptState->getObject(str, fields, element->getContext());
-            if(!object.valid()) {
-              IMVUE_EXCEPTION(ScriptError, "failed to evaluate data %s", str);
-              return;
-            }
-            success = detail::read(object, &value);
-          } else if(flags & TEMPLATED_STRING) {
-            std::string retval;
-            std::stringstream result;
-            std::stringstream ss;
-            bool evaluation = false;
-
-            for(int i = 0;;i++) {
-              if(str[i] == '\0') {
-                break;
-              }
-
-              if(evaluation && std::strncmp(&str[i], "}}", 2) == 0) {
-                Object object = scriptState->getObject(&ss.str()[0], fields, element->getContext());
-                ss = std::stringstream();
-                evaluation = false;
-                result << object.as<ImString>().c_str();
-                i++;
-                continue;
-              }
-
-              if(!evaluation && std::strncmp(&str[i], "{{", 2) == 0) {
-                evaluation = true;
-                i++;
-                continue;
-              }
-
-              if(evaluation) {
-                ss << str[i];
-              } else {
-                result << str[i];
-              }
-            }
-
-            success = detail::read(&result.str()[0], &value);
-          }
-        }
-
-        if(!success) {
-          success = detail::read(str, &value);
-        }
+        Type value = initVariable<Type>();
+        bool success = evaluateString(str, element, scriptState, flags, fields, &value);
 
         if(success) {
           (static_cast<C*>(element)->*mSetter)(value);
@@ -860,7 +1002,7 @@ namespace ImVue {
   class HandlerFactory : public ElementEntity {
     public:
       virtual ~HandlerFactory() {}
-      virtual EventHandler* create(const char* handlerName, const char* script) const = 0;
+      virtual EventHandler* create(Element* element, const char* handlerName, const char* script) const = 0;
   };
 
   /**
@@ -870,8 +1012,8 @@ namespace ImVue {
   class HandlerFactoryImpl : public HandlerFactory {
     public:
       virtual ~HandlerFactoryImpl() {}
-      EventHandler* create(const char* handlerName, const char* script) const {
-        return new C(handlerName, script);
+      EventHandler* create(Element* element, const char* handlerName, const char* script) const {
+        return new C(element, handlerName, script);
       }
   };
 
@@ -908,9 +1050,9 @@ namespace ImVue {
         return nullptr;
       }
 
-      inline EventHandler* createHandler(const char* name, const char* fullName, const char* script) const {
+      inline EventHandler* createHandler(Element* element, const char* name, const char* fullName, const char* script) const {
         if(mHandlers.find(name) != mHandlers.end()) {
-          return mHandlers.at(name)->create(fullName, script);
+          return mHandlers.at(name)->create(element, fullName, script);
         }
 
         return nullptr;
@@ -994,11 +1136,7 @@ namespace ImVue {
       template<class Type>
       ElementBuilderImpl<C>& attribute(const char* name, Type C::* memPtr, bool required = false)
       {
-        mAttributes[name] = new AttributeMemPtr<C, Type>(memPtr, required);
-        mAttributes[name]->owner = this;
-        if(required) {
-          mRequiredAttrs.push_back(name);
-        }
+        registerAttribute(name, new AttributeMemPtr<C, Type>(memPtr, required));
         return *this;
       }
 
@@ -1012,11 +1150,7 @@ namespace ImVue {
       template<class Type>
       ElementBuilderImpl<C>& setter(const char* name, void(C::*func)(Type), bool required = false)
       {
-        mAttributes[name] = new AttributeSetter<C, Type>(func, required);
-        mAttributes[name]->owner = this;
-        if(required) {
-          mRequiredAttrs.push_back(name);
-        }
+        registerAttribute(name, new AttributeSetter<C, Type>(func, required));
         return *this;
       }
 
@@ -1030,11 +1164,20 @@ namespace ImVue {
       template<class D>
       ElementBuilderImpl<C>& text(D C::* memPtr, bool required = false)
       {
-        mAttributes[TEXT_ID] = new AttributeMemPtr<C, D>(memPtr, required);
-        mAttributes[TEXT_ID]->owner = this;
-        if(required) {
-          mRequiredAttrs.push_back(TEXT_ID);
-        }
+        registerAttribute(TEXT_ID, new AttributeMemPtr<C, D>(memPtr, required));
+        return *this;
+      }
+
+      /**
+       * Register text setter
+       *
+       * @param func setter function to use (&Element::setValue)
+       * @param required property is required
+       */
+      template<class Type>
+      ElementBuilderImpl<C>& text(void(C::*func)(Type), bool required = false)
+      {
+        registerAttribute(TEXT_ID, new AttributeSetter<C, Type>(func, required));
         return *this;
       }
 
@@ -1064,6 +1207,19 @@ namespace ImVue {
         }
         mInheritance.push_back(ImString(name));
         return *this;
+      }
+
+      void registerAttribute(const char* id, Attribute* attr)
+      {
+        if(mAttributes.find(id) != mAttributes.end()) {
+          delete mAttributes[id];
+        }
+
+        mAttributes[id] = attr;
+        attr->owner = this;
+        if(attr->required) {
+          mRequiredAttrs.push_back(id);
+        }
       }
   };
 
@@ -1154,7 +1310,7 @@ namespace ImVue {
   class EventHandler {
 
     public:
-      EventHandler(const char* handlerName, const char* script);
+      EventHandler(Element* element, const char* handlerName, const char* script);
       virtual ~EventHandler() {}
 
       inline const char* getScript() const { return mScript; }
@@ -1173,6 +1329,7 @@ namespace ImVue {
 
       typedef std::unordered_map<ImU32, bool> Properties;
       Properties mProperties;
+      Element* mElement;
   };
 
   inline int modState();
@@ -1186,7 +1343,7 @@ namespace ImVue {
         Super = 1 << 3
       };
 
-      InputHandler(const char* handlerName, const char* script);
+      InputHandler(Element* element, const char* handlerName, const char* script);
       inline bool checkModifiers() {
         int current = modState();
         return mExact ? (current == mModifiers) : ((current | mModifiers) || !mModifiers);
@@ -1226,13 +1383,14 @@ namespace ImVue {
 
       enum Type {
         Click,
+        DoubleClick,
         MouseDown,
         MouseUp,
         MouseOver,
         MouseOut
       };
 
-      MouseEventHandler(const char* handlerName, const char* script);
+      MouseEventHandler(Element* element, const char* handlerName, const char* script);
     protected:
       bool check();
     private:
@@ -1246,7 +1404,7 @@ namespace ImVue {
    */
   class ChangeEventHandler : public EventHandler {
     public:
-      ChangeEventHandler(const char* handlerName, const char* script) : EventHandler(handlerName, script) {}
+      ChangeEventHandler(Element* element, const char* handlerName, const char* script) : EventHandler(element, handlerName, script) {}
     protected:
       bool check() {
         return ImGui::IsItemEdited();
@@ -1264,7 +1422,7 @@ namespace ImVue {
         Press
       };
 
-      KeyboardEventHandler(const char* handlerName, const char* script);
+      KeyboardEventHandler(Element* element, const char* handlerName, const char* script);
 
       typedef std::unordered_map<ImU32, int> KeyMap;
       static KeyMap init();
@@ -1287,6 +1445,10 @@ namespace ImVue {
       ContainerElement();
       virtual ~ContainerElement();
 
+      inline const Elements& getChildren() const {
+        return mChildren;
+      }
+
       /**
        * Selector that behaves the same way as jQuery $
        */
@@ -1297,8 +1459,11 @@ namespace ImVue {
         int kind = 0;
         if(query[0] == '#') {        // get by id
           kind = 1;
+        } else if(query[0] == '.') { // get by class
+          kind = 2;
+        } else if(query[0] == '*') { // get all
+          kind = 3;
         }
-
 
         for(Elements::iterator iter = mChildren.begin(); iter != mChildren.end(); ++iter) {
           bool push = false;
@@ -1327,6 +1492,12 @@ namespace ImVue {
               }
               push = std::strcmp(&query[1], e->id) == 0;
               break;
+            case 2:
+              push = e->hasClass(&query[1]);
+              break;
+            case 3:
+              push = true;
+              break;
           }
 
           if(push) {
@@ -1353,9 +1524,7 @@ namespace ImVue {
 
       void renderChildren();
 
-      typedef std::vector<Element*> Elements;
-
-      Elements mChildren;
+      Layout mLayout;
   };
 
   class PseudoElement : public ContainerElement {
@@ -1405,6 +1574,87 @@ namespace ImVue {
     public:
       void configure(rapidxml::xml_node<>* node, Context* ctx, ScriptState::Context* sctx = 0, Element* parent = 0);
   };
+
+  /**
+   * Default element for text node
+   */
+  class Text : public Element {
+
+    public:
+
+      Text() : text(0), mEstimatedSize(false) {
+      }
+
+      virtual ~Text()
+      {
+        if(text)
+          ImGui::MemFree(text);
+      }
+
+      bool build()
+      {
+        if(!mBuilder) {
+          mBuilder = mFactory->get(TEXT_NODE);
+        }
+
+        bool res = Element::build();
+        // always display as inline block
+        display = CSS_DISPLAY_INLINE;
+        return res;
+      }
+
+      void renderBody()
+      {
+        if(!mParent || !text) {
+          IMVUE_EXCEPTION(ElementError, "text node must always be attached to some parent");
+          return;
+        }
+
+        if(!mEstimatedSize) {
+          ImGui::TextUnformatted(text);
+          mEstimatedSize = true;
+        } else {
+          bool popWrap = false;
+          if(mParent->size.x > 0) {
+            ImGui::PushTextWrapPos(mParent->pos.x + mParent->size.x);
+            popWrap = true;
+          }
+
+          ImGui::TextWrapped("%s", text);
+
+          if(popWrap)
+            ImGui::PopTextWrapPos();
+        }
+      }
+
+      void setText(char* value)
+      {
+        if(text) {
+          ImGui::MemFree(text);
+          text = 0;
+        }
+
+        if(!value) {
+          return;
+        }
+
+        text = ImStrdup(value);
+      }
+
+      char* text;
+
+    private:
+
+      bool mEstimatedSize;
+  };
+
+  inline bool displayedInline(Element* element) {
+    if(!element) {
+      return false;
+    }
+
+    return element->display == CSS_DISPLAY_INLINE_BLOCK || element->display == CSS_DISPLAY_INLINE;
+  }
 }
 
 #endif

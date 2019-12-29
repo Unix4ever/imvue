@@ -1,5 +1,5 @@
-#ifndef __IMVUE_EXTENSIONS__
-#define __IMVUE_EXTENSIONS__
+#ifndef __IMVUE_SVG__
+#define __IMVUE_SVG__
 
 #include "imvue_element.h"
 #include "nanosvg.h"

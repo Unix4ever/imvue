@@ -1,3 +1,14 @@
+<style>
+  * {
+    padding: 5px;
+  }
+
+  menu {
+    display: inline;
+  }
+
+</style>
+
 <template>
   <window name="demo">
     <button v-on:mouseover="self.showTooltip = true" v-on:mouseout="self.showTooltip = false">right click</button>
@@ -13,7 +24,6 @@
     <progress-bar :fraction="self.progress"/>
     <!-- click handler -->
     <button v-on:click="self:testing()">add more elements</button>
-    <same-line/>
     <button v-on:click="self.values = {}">clear list</button>
     <text-unformatted>Dynamic list</text-unformatted>
     <!-- loops -->
@@ -22,6 +32,15 @@
     <input-text buf-size="512" ref="input" v-on:keypress.enter="self:runScript()">console</input-text>
     <button v-on:click="self:runScript()">run script</button>
     <text-unformatted>submitted input: {{ if self.inputText then return self.inputText else return 'none' end}}</text-unformatted>
+    <h4>Tab bar</h4>
+    <tab-bar str-id="test" :flags="ImGuiTabBarFlags_Reorderable">
+      <tab-item label="tab 1" p-open="true">
+        <button>it works</button>
+      </tab-item>
+      <tab-item label="tab 2" p-open="true"/>
+      <tab-item label="tab 3" p-open="true"/>
+      <tab-item label="tab 4" p-open="true"/>
+    </tab-bar>
   </window>
 
   <main-menu-bar>

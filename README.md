@@ -97,12 +97,12 @@ Dependencies
 - ImGui without any modifications.
 - NanoSVG is used for image rendering. Using customized rasterizer.
 - RapidXML is used for XML parsing.
+- customized version of [LibCSS](https://github.com/Unix4ever/libcss).
 
 Optional Core Dependecies
 -------------------------
 
 - Lua 5.1+/LuaJIT 2.0.5+ - adds script interpreter.
-- katana-parser allows reading CSS to change widgets style.
 
 Samples Dependencies
 --------------------

@@ -1,0 +1,47 @@
+<style>
+  * {
+    background-color: #FF0000;
+  }
+
+  .pseudo-element > :first-child {
+    background-color: #00FF00;
+  }
+
+  .pseudo-element > :last-child {
+    background-color: #00FF00;
+  }
+
+  .pseudo-element-flat > :first-child {
+    background-color: #00FF00;
+  }
+
+  .pseudo-element-flat > :last-child {
+    background-color: #00FF00;
+  }
+</style>
+
+<template>
+  <window name="selection test">
+    <div class="pseudo-element">
+      <test v-for="_ in self.list"/>
+    </div>
+    <div class="pseudo-element-flat">
+      <test/>
+      <test v-for="_ in self.list"/>
+      <test/>
+      <test v-if="self.condition"/>
+    </div>
+  </window>
+</template>
+
+<script>
+  state = ImVue.new({
+    data = function()
+      return {
+        list = {1, 2, 3, 4, 5},
+        condition = false
+      }
+    end
+  })
+  return state
+</script>

@@ -10,6 +10,8 @@ blacklist:
 # rewrite classes names
 rewrites:
   Combo: ComboItem
+rewrite_fields:
+  size_arg: size
 rules:
   label: from_text
   text: from_text

@@ -52,7 +52,10 @@ namespace ImVue {
     OBJECT   = 5,
     USERDATA = 6,
     FUNCTION = 7,
-    ARRAY    = 8
+    ARRAY    = 8,
+
+    // special cases
+    VEC2     = 9
   };
 
 #define DEFINE_TYPE_ID(cls, id) \
@@ -61,7 +64,7 @@ namespace ImVue {
     static ObjectType value() { return id; } \
   }
 
-  template<class C, bool = std::is_integral<C>::value>
+  template<class C, bool = std::is_integral<C>::value && !std::is_same<C, bool>::value>
   struct typeID {};
 
   DEFINE_TYPE_ID(bool, ObjectType::BOOLEAN);
@@ -70,6 +73,7 @@ namespace ImVue {
   DEFINE_TYPE_ID(Object, ObjectType::OBJECT);
   DEFINE_TYPE_ID(double, ObjectType::NUMBER);
   DEFINE_TYPE_ID(float, ObjectType::NUMBER);
+  DEFINE_TYPE_ID(ImVec2, ObjectType::VEC2);
 
   template<class C>
   struct typeID<C, true> {
@@ -108,6 +112,16 @@ namespace ImVue {
       virtual Object get(const char* key) = 0;
 
       /**
+       * Get object by index
+       */
+      virtual Object get(int index) = 0;
+
+      /**
+       * Delete object key
+       */
+      virtual void erase(const Object& key) = 0;
+
+      /**
        * Call function
        */
       virtual bool call(Object* args, Object* rets, int nargs, int nrets) = 0;
@@ -144,6 +158,8 @@ namespace ImVue {
       virtual void setString(const char* value) = 0;
       virtual void setBool(bool value) = 0;
 
+      virtual void initObject() = 0;
+
   };
   /**
    * Abstract object representation
@@ -166,6 +182,10 @@ namespace ImVue {
 
       Object operator[](const char* key);
 
+      Object operator[](int index);
+
+      void erase(const Object& key);
+
       bool valid() const;
 
       operator bool() const;
@@ -180,7 +200,25 @@ namespace ImVue {
 
       inline const ObjectImpl* getImpl() const { return mObject.get(); }
 
-      bool set(void* value, ObjectType type);
+      template<class C>
+      typename std::enable_if<std::is_integral<C>::value, bool>::type set(C* value, ObjectType type)
+      {
+        long val = (long)(*value);
+        return setValue(&val, type);
+      }
+
+      template<class C>
+      typename std::enable_if<!std::is_integral<C>::value && !std::is_floating_point<C>::value, bool>::type set(C* value, ObjectType type)
+      {
+        return setValue(value, type);
+      }
+
+      template<class C>
+      typename std::enable_if<std::is_floating_point<C>::value, bool>::type set(C* value, ObjectType type)
+      {
+        double val = (double)(*value);
+        return setValue(&val, type);
+      }
 
       template<typename C>
       C as() const {
@@ -210,6 +248,8 @@ namespace ImVue {
         return *this;
       }
     private:
+      bool setValue(void* value, ObjectType type);
+
       std::shared_ptr<ObjectImpl> mObject;
   };
 
@@ -259,6 +299,12 @@ namespace ImVue {
 
       ObjectIterator& operator++() {
         advance();
+        return *this;
+      }
+
+      template<typename C>
+      Object& operator=(C value) {
+        set(&value, typeID<C>::value());
         return *this;
       }
 

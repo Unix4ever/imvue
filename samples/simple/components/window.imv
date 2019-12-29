@@ -1,0 +1,149 @@
+<style scoped="true">
+window.custom > .body > * {
+  margin: 0 !important;
+}
+
+window.custom {
+  padding: 0;
+  font-size: 30px;
+}
+
+window.custom > .body {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  background-color: #b3b3b3;
+  border-radius: 15px;
+  border: 2px solid #CCCCCC;
+}
+
+.title {
+  background-color: #bbbbbb;
+  padding: 0.2rem;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-radius: 10px 10px 0 0;
+  color: #222222;
+  margin: 0;
+}
+
+.separator {
+  height: 0;
+  margin: 0;
+  border-top: 1px solid #CCCCCC;
+  border-bottom: 2px solid #999999;
+}
+
+.icon-btn {
+  color: #222222;
+  margin: 0;
+  padding: 0;
+  font-family: MaterialIcons;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.icon-btn:hover {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.icon-btn:active {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.title:hover, .title:active {
+  background-color: #DDDDDD;
+}
+
+.content {
+  padding: 0.2rem 0.2rem;
+}
+
+.content > label {
+  color: #111111;
+}
+
+input[type="text"] {
+  background-color: #DDDDDD;
+  border: 2px solid #999999;
+  color: #000000;
+  padding: 10px;
+  border-radius: 8px;
+  margin: 0;
+  margin-bottom: 5px;
+}
+
+input[type="text"]:active {
+  border: 2px solid #3686ad;
+  color: #000000;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+
+.btn {
+  padding: 0.2rem 0.7rem;
+  background-color: #EEEEEE;
+  color: #000000;
+  border: 4px solid #555555;
+  margin-right: 0.2rem;
+  background-color: rgba(255, 255, 255, 0.4);
+  border-radius: 0;
+}
+
+.btn:hover {
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 4px solid #3686ad;
+}
+
+.btn:active {
+  background-color: rgba(255, 255, 255, 0.6);
+  border: 4px solid #3686ad;
+}
+
+</style>
+
+<template>
+  <window class="custom" :name="self.name" :flags="ImGuiWindowFlags_NoBackground + ImGuiWindowFlags_NoTitleBar" v-if="not self.closed" :ref="self.name">
+    <div class="body">
+      <div>
+        <div class="title test">
+          <text-unformatted style="display: inline">{{ self.title or self.name }}</text-unformatted>
+        </div>
+      </div>
+      <div v-if="self.closable" class="icon-btn" style="position: absolute; right: 6px; top: 6px" v-on:click="self.closed = true"></div>
+      <div class="separator"/>
+      <div class="content">
+        <slot/>
+      </div>
+    </div>
+  </window>
+</template>
+
+<script>
+return {
+  props = {
+    name = {
+      type = ImVue_String,
+      required = true
+    },
+    title = {
+      type = ImVue_String
+    },
+    closable = {
+      type = ImVue_Boolean,
+      default = false
+    }
+  },
+  data = function()
+    return {
+      closed = false,
+      windowSize = {0, 0}
+    }
+  end
+}
+</script>

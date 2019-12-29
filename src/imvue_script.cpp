@@ -58,6 +58,16 @@ namespace ImVue {
     return mObject->get(key);
   }
 
+  Object Object::operator[](int index)
+  {
+    return mObject->get(index);
+  }
+
+  void Object::erase(const Object& key)
+  {
+    mObject->erase(key);
+  }
+
   bool Object::valid() const {
     return mObject != 0;
   }
@@ -85,7 +95,7 @@ namespace ImVue {
     return mObject->keys(dest);
   }
 
-  bool Object::set(void* value, ObjectType type)
+  bool Object::setValue(void* value, ObjectType type)
   {
     switch(type) {
       case ObjectType::OBJECT:
@@ -106,6 +116,11 @@ namespace ImVue {
         break;
       case ObjectType::BOOLEAN:
         mObject->setBool(*reinterpret_cast<bool*>(value));
+        break;
+      case ObjectType::VEC2:
+        mObject->initObject();
+        (*this)["x"] = (*reinterpret_cast<ImVec2*>(value)).x;
+        (*this)["y"] = (*reinterpret_cast<ImVec2*>(value)).y;
         break;
       default:
         return false;

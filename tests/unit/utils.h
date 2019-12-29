@@ -6,6 +6,10 @@
 static void renderDocument(ImVue::Document& document, int times = 1)
 {
   ImGuiIO& io = ImGui::GetIO();
+  unsigned char* pixels;
+  int width, height;
+  io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
   for(int i = 0; i < times; ++i) {
     io.DisplaySize = ImVec2(1024, 768);
     io.DeltaTime = 1.0f / 60.0f;

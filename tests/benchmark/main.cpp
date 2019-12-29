@@ -6,7 +6,7 @@
 #include <sstream>
 #include "imvue_generated.h"
 
-#define WINDOW_COUNT 1000
+#define WINDOW_COUNT 100
 
 class ImVueBenchmark : public benchmark::Fixture {
 public:
@@ -158,10 +158,46 @@ BENCHMARK_DEFINE_F(ImVueBenchmark, RenderImVueScripted)(benchmark::State& state)
   lua_close(L);
 }
 
+
+BENCHMARK_DEFINE_F(ImVueBenchmark, RenderImVueStyled)(benchmark::State& state) {
+  lua_State * L = luaL_newstate();
+  luaL_openlibs(L);
+  ImVue::registerBindings(L);
+  {
+    ImVue::Document document(ImVue::createContext(
+      ImVue::createElementFactory(),
+      new ImVue::LuaScriptState(L)
+    ));
+    std::stringstream ss;
+
+    ss << "<style>button { padding: 20px; }</style>";
+    ss << "<template>";
+    for(size_t i = 0; i < WINDOW_COUNT; ++i) {
+      ss << "<window :name=\"self.windowName .. '" << i << "'\"><button>test</button></window>";
+    }
+    ss << "</template>";
+
+    ss << "<script>"
+      "return ImVue.new({"
+        "data = function() return { windowName = 'window' } end"
+      "})"
+    "</script>";
+
+    document.parse(&ss.str()[0]);
+    for (auto _ : state) {
+      beforeRender();
+      document.render();
+      afterRender();
+    }
+  }
+  lua_close(L);
+}
+
 BENCHMARK_REGISTER_F(ImVueBenchmark, RenderImVueScripted);
+BENCHMARK_REGISTER_F(ImVueBenchmark, RenderImVueStyled);
 #endif
 
-BENCHMARK_REGISTER_F(ImVueBenchmark, RenderImGuiStatic);
 BENCHMARK_REGISTER_F(ImVueBenchmark, RenderImVueStatic);
+BENCHMARK_REGISTER_F(ImVueBenchmark, RenderImGuiStatic);
 // Run the benchmark
 BENCHMARK_MAIN();

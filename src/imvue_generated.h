@@ -300,7 +300,6 @@ namespace ImVue {
         ImGui::InvisibleButton(str_id, size);
       }
       char* str_id;
-      ImVec2 size;
   };
 
   class Combo : public ContainerElement {
@@ -504,7 +503,7 @@ namespace ImVue {
         }
       }
       char* str_id;
-      int mouse_button;
+      ImGuiMouseButton mouse_button;
       bool also_over_items;
   };
 
@@ -552,7 +551,6 @@ namespace ImVue {
         }
       }
       ImGuiID id;
-      ImVec2 size;
       ImGuiWindowFlags flags;
   };
 
@@ -599,7 +597,7 @@ namespace ImVue {
 
     public:
       InputTextMultiline()
-        : label(NULL),buf(NULL),buf_size(512),size(ImVec2(0,0)),flags(0),callback(NULL),user_data(NULL)
+        : label(NULL),buf(NULL),buf_size(512),flags(0),callback(NULL),user_data(NULL)
       {
         buf = (char*)ImGui::MemAlloc(buf_size);
         buf[0] = '\0';
@@ -615,7 +613,6 @@ namespace ImVue {
       char* label;
       char* buf;
       size_t buf_size;
-      ImVec2 size;
       ImGuiInputTextFlags flags;
       ImGuiInputTextCallback callback;
       void* user_data;
@@ -625,7 +622,7 @@ namespace ImVue {
 
     public:
       Selectable()
-        : label(NULL),selected(false),flags(0),size(ImVec2(0,0))
+        : label(NULL),selected(false),flags(0)
       {
       }
       virtual ~Selectable() {
@@ -638,7 +635,6 @@ namespace ImVue {
       char* label;
       bool selected;
       ImGuiSelectableFlags flags;
-      ImVec2 size;
   };
 
   class DragDropTarget : public ContainerElement {
@@ -727,7 +723,7 @@ namespace ImVue {
 
     public:
       Child()
-        : str_id(NULL),size(ImVec2(0,0)),border(false),flags(0)
+        : str_id(NULL),border(false),flags(0)
       {
       }
       virtual ~Child() {
@@ -740,7 +736,6 @@ namespace ImVue {
         ImGui::EndChild();
       }
       char* str_id;
-      ImVec2 size;
       bool border;
       ImGuiWindowFlags flags;
   };
@@ -780,7 +775,7 @@ namespace ImVue {
         }
       }
       char* str_id;
-      int mouse_button;
+      ImGuiMouseButton mouse_button;
   };
 
   class InputInt : public Element {
@@ -857,7 +852,6 @@ namespace ImVue {
       void renderBody() {
         ImGui::Dummy(size);
       }
-      ImVec2 size;
   };
 
   class Unindent : public Element {
@@ -904,7 +898,7 @@ namespace ImVue {
 
     public:
       Button()
-        : label(NULL),size(ImVec2(0,0))
+        : label(NULL)
       {
       }
       virtual ~Button() {
@@ -915,7 +909,6 @@ namespace ImVue {
         ImGui::Button(label, size);
       }
       char* label;
-      ImVec2 size;
   };
 
   class InputFloat2 : public Element {
@@ -1049,7 +1042,6 @@ namespace ImVue {
         ImGui::VSliderFloat(label, size, v, v_min, v_max, format, power);
       }
       char* label;
-      ImVec2 size;
       float* v;
       float v_min;
       float v_max;
@@ -1122,7 +1114,7 @@ namespace ImVue {
         }
       }
       char* str_id;
-      int mouse_button;
+      ImGuiMouseButton mouse_button;
   };
 
   class Columns : public Element {
@@ -1148,7 +1140,7 @@ namespace ImVue {
 
     public:
       ColorButton()
-        : desc_id(NULL),flags(0),size(ImVec2(0,0))
+        : desc_id(NULL),flags(0)
       {
       }
       virtual ~ColorButton() {
@@ -1161,7 +1153,6 @@ namespace ImVue {
       char* desc_id;
       ImVec4 col;
       ImGuiColorEditFlags flags;
-      ImVec2 size;
   };
 
   class SliderInt4 : public Element {
@@ -1307,7 +1298,6 @@ namespace ImVue {
         ImGui::ImageButton(user_texture_id, size, uv0, uv1, frame_padding, bg_col, tint_col);
       }
       ImTextureID user_texture_id;
-      ImVec2 size;
       ImVec2 uv0;
       ImVec2 uv1;
       int frame_padding;
@@ -1351,7 +1341,6 @@ namespace ImVue {
         ImGui::Image(user_texture_id, size, uv0, uv1, tint_col, border_col);
       }
       ImTextureID user_texture_id;
-      ImVec2 size;
       ImVec2 uv0;
       ImVec2 uv1;
       ImVec4 tint_col;
@@ -1432,7 +1421,7 @@ namespace ImVue {
 
     public:
       ProgressBar()
-        : fraction(0.0f),size_arg(ImVec2(-1,0)),overlay(NULL)
+        : fraction(0.0f),overlay(NULL)
       {
       }
       virtual ~ProgressBar() {
@@ -1440,10 +1429,9 @@ namespace ImVue {
       }
 
       void renderBody() {
-        ImGui::ProgressBar(fraction, size_arg, overlay);
+        ImGui::ProgressBar(fraction, size, overlay);
       }
       float fraction;
-      ImVec2 size_arg;
       char* overlay;
   };
 
@@ -1487,7 +1475,6 @@ namespace ImVue {
         ImGui::VSliderInt(label, size, &v, v_min, v_max, format);
       }
       char* label;
-      ImVec2 size;
       int v;
       int v_min;
       int v_max;
@@ -1765,8 +1752,7 @@ namespace ImVue {
       .attribute("flags", &InputFloat3::flags);
 
     factory.element<InvisibleButton>("invisible-button")
-      .attribute("str-id", &InvisibleButton::str_id, true)
-      .attribute("size", &InvisibleButton::size, true);
+      .attribute("str-id", &InvisibleButton::str_id, true);
 
     factory.element<Combo>("combo")
       .attribute("label", &Combo::label, true)
@@ -1836,7 +1822,6 @@ namespace ImVue {
 
     factory.element<ChildFrame>("child-frame")
       .attribute("id", &ChildFrame::id, true)
-      .attribute("size", &ChildFrame::size)
       .attribute("flags", &ChildFrame::flags);
 
     factory.element<PlotLines>("plot-lines")
@@ -1856,7 +1841,6 @@ namespace ImVue {
       .text(&InputTextMultiline::label)
       .attribute("buf", &InputTextMultiline::buf)
       .attribute("buf-size", &InputTextMultiline::buf_size)
-      .attribute("size", &InputTextMultiline::size)
       .attribute("flags", &InputTextMultiline::flags)
       .attribute("callback", &InputTextMultiline::callback)
       .attribute("user-data", &InputTextMultiline::user_data);
@@ -1864,8 +1848,7 @@ namespace ImVue {
     factory.element<Selectable>("selectable")
       .text(&Selectable::label)
       .attribute("selected", &Selectable::selected)
-      .attribute("flags", &Selectable::flags)
-      .attribute("size", &Selectable::size);
+      .attribute("flags", &Selectable::flags);
 
     factory.element<DragDropTarget>("drag-drop-target");
 
@@ -1886,7 +1869,6 @@ namespace ImVue {
 
     factory.element<Child>("child")
       .attribute("str-id", &Child::str_id, true)
-      .attribute("size", &Child::size)
       .attribute("border", &Child::border)
       .attribute("flags", &Child::flags);
 
@@ -1913,8 +1895,7 @@ namespace ImVue {
       .attribute("str-id", &TabBar::str_id, true)
       .attribute("flags", &TabBar::flags);
 
-    factory.element<Dummy>("dummy")
-      .attribute("size", &Dummy::size);
+    factory.element<Dummy>("dummy");
 
     factory.element<Unindent>("unindent")
       .attribute("indent-w", &Unindent::indent_w);
@@ -1925,8 +1906,7 @@ namespace ImVue {
     factory.element<Bullet>("bullet");
 
     factory.element<Button>("button")
-      .text(&Button::label, true)
-      .attribute("size", &Button::size);
+      .text(&Button::label, true);
 
     factory.element<InputFloat2>("input-float2")
       .text(&InputFloat2::label)
@@ -1960,7 +1940,6 @@ namespace ImVue {
 
     factory.element<VSliderFloat>("v-slider-float")
       .text(&VSliderFloat::label, true)
-      .attribute("size", &VSliderFloat::size)
       .attribute("v", &VSliderFloat::v, true)
       .attribute("v-min", &VSliderFloat::v_min)
       .attribute("v-max", &VSliderFloat::v_max)
@@ -1993,8 +1972,7 @@ namespace ImVue {
     factory.element<ColorButton>("color-button")
       .attribute("desc-id", &ColorButton::desc_id, true)
       .attribute("col", &ColorButton::col, true)
-      .attribute("flags", &ColorButton::flags)
-      .attribute("size", &ColorButton::size);
+      .attribute("flags", &ColorButton::flags);
 
     factory.element<SliderInt4>("slider-int4")
       .text(&SliderInt4::label)
@@ -2039,7 +2017,6 @@ namespace ImVue {
 
     factory.element<ImageButton>("image-button")
       .attribute("user-texture-id", &ImageButton::user_texture_id)
-      .attribute("size", &ImageButton::size)
       .attribute("uv0", &ImageButton::uv0)
       .attribute("uv1", &ImageButton::uv1)
       .attribute("frame-padding", &ImageButton::frame_padding)
@@ -2057,7 +2034,6 @@ namespace ImVue {
 
     factory.element<Image>("image")
       .attribute("user-texture-id", &Image::user_texture_id)
-      .attribute("size", &Image::size)
       .attribute("uv0", &Image::uv0)
       .attribute("uv1", &Image::uv1)
       .attribute("tint-col", &Image::tint_col)
@@ -2088,7 +2064,6 @@ namespace ImVue {
 
     factory.element<ProgressBar>("progress-bar")
       .attribute("fraction", &ProgressBar::fraction)
-      .attribute("size-arg", &ProgressBar::size_arg)
       .attribute("overlay", &ProgressBar::overlay);
 
     factory.element<DragFloat2>("drag-float2")
@@ -2102,7 +2077,6 @@ namespace ImVue {
 
     factory.element<VSliderInt>("v-slider-int")
       .text(&VSliderInt::label)
-      .attribute("size", &VSliderInt::size)
       .attribute("v", &VSliderInt::v)
       .attribute("v-min", &VSliderInt::v_min)
       .attribute("v-max", &VSliderInt::v_max)
@@ -2162,6 +2136,9 @@ namespace ImVue {
       .attribute("format-max", &DragIntRange2::format_max);
 
 
+    factory.element<Text>(TEXT_NODE)
+      .text(&Text::setText, true);
+
     factory.element<CollapsingHeader>("collapsing-header")
       .attribute("label", &CollapsingHeader::label)
       .attribute("flags", &CollapsingHeader::flags);
@@ -2170,6 +2147,7 @@ namespace ImVue {
     factory.element<Document>("template");
     factory.element<Element>("__element__")
         .handler<MouseEventHandler>("click")
+        .handler<MouseEventHandler>("doubleclick")
         .handler<MouseEventHandler>("mousedown")
         .handler<MouseEventHandler>("mouseup")
         .handler<MouseEventHandler>("mouseover")
@@ -2178,9 +2156,11 @@ namespace ImVue {
         .handler<KeyboardEventHandler>("keydown")
         .handler<KeyboardEventHandler>("keyup")
         .handler<KeyboardEventHandler>("keypress")
+        .attribute("size", &Element::size)
         .attribute("id", &Element::id)
         .attribute("key", &Element::key)
-        .attribute("ref", &Element::ref);
+        .attribute("ref", &Element::ref)
+        .setter("style", &Element::setInlineStyle);
 
     factory.element<Slot>("slot");
     return res;

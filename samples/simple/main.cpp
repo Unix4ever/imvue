@@ -145,6 +145,8 @@ int main(int argc, char** argv)
           new OpenGL2TextureManager()
       );
 
+      ctx->scale = ImVec2(scale, scale);
+
       ImVue::Document document(ctx);
       const char* page = "simple.xml";
       if(argc == 2) {

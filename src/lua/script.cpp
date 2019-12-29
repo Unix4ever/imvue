@@ -144,6 +144,8 @@ extern "C" {
 
   Object createObject(lua_State* L);
   Object createObject(lua_State* L, int ref);
+  Object createObject(lua_State* L, int ref, const char* key);
+  Object createObject(lua_State* L, int ref, int index);
 
   /**
    * Abstract lua object
@@ -152,6 +154,7 @@ extern "C" {
     public:
       LuaObject(lua_State* L)
         : mLuaState(L)
+        , mType(ObjectType::NIL)
       {
       }
 
@@ -186,9 +189,42 @@ extern "C" {
         }
         StackGuard g(mLuaState);
         unwrap();
-        lua_pushstring(mLuaState, key);
-        lua_gettable(mLuaState, -2);
-        return createObject(mLuaState);
+        return createObject(mLuaState, luaL_ref(mLuaState, LUA_REGISTRYINDEX), key);
+      }
+
+      virtual Object get(int index) {
+        if(type() != ObjectType::OBJECT && type() != ObjectType::USERDATA && type() != ObjectType::ARRAY) {
+          IMVUE_EXCEPTION(ScriptError, "failed to get key: not an object");
+          return Object();
+        }
+        StackGuard g(mLuaState);
+        unwrap();
+        return createObject(mLuaState, luaL_ref(mLuaState, LUA_REGISTRYINDEX), index);
+      }
+
+      virtual void erase(const Object& key)
+      {
+        StackGuard g(mLuaState);
+        const ObjectImpl* impl = key.getImpl();
+        if(!impl) {
+          IMVUE_EXCEPTION(ScriptError, "null pointer access");
+          return;
+        }
+        const LuaObject* obj = static_cast<const LuaObject*>(impl);
+
+        if(type() == ObjectType::USERDATA) {
+          unwrap();
+          lua_getfield(mLuaState, -1, "remove");
+          unwrap(mLuaState);
+          obj->unwrap(mLuaState);
+          lua_call(mLuaState, 2, 1);
+        } else {
+          unwrap();
+          int table = lua_gettop(mLuaState);
+          obj->unwrap(mLuaState);
+          lua_pushnil(mLuaState);
+          lua_settable(mLuaState, table);
+        }
       }
 
       virtual bool call(Object* args, Object* rets, int nargs, int nrets) {
@@ -285,6 +321,17 @@ extern "C" {
       {
         StackGuard g(mLuaState);
         lua_pushboolean(mLuaState, value);
+        assign();
+      }
+
+      void initObject()
+      {
+        StackGuard g(mLuaState);
+        unwrap(mLuaState);
+        if(lua_type(mLuaState, -1) == LUA_TTABLE)
+          return;
+
+        lua_createtable(mLuaState, 0, 0);
         assign();
       }
 
@@ -407,6 +454,16 @@ extern "C" {
       {
         lua_pushstring(L, key);
         mKeyReference = luaL_ref(L, LUA_REGISTRYINDEX);
+        initType();
+      }
+
+      LuaFieldReference(lua_State* L, int ref, int index)
+        : LuaObject(L)
+        , mRef(ref)
+      {
+        lua_pushinteger(L, index);
+        mKeyReference = luaL_ref(L, LUA_REGISTRYINDEX);
+        initType();
       }
 
       LuaFieldReference(lua_State* L, int index)
@@ -428,6 +485,7 @@ extern "C" {
         lua_rawgeti(L, LUA_REGISTRYINDEX, mRef);
         lua_rawgeti(L, LUA_REGISTRYINDEX, mKeyReference);
         lua_gettable(L, -2);
+        lua_remove(L, -2);
       }
 
       void assign(lua_State* L = 0)
@@ -453,6 +511,15 @@ extern "C" {
 
   Object createObject(lua_State* L, int ref) {
     return Object(new LuaReference(L, ref));
+  }
+
+  Object createObject(lua_State* L, int ref, const char* key) {
+    return Object(new LuaFieldReference(L, ref, key));
+  }
+
+  Object createObject(lua_State* L, int ref, int index)
+  {
+    return Object(new LuaFieldReference(L, ref, index));
   }
 
 
@@ -619,6 +686,7 @@ extern "C" {
 
     // TODO: make all script tag parsers use the same code path
     rapidxml::xml_attribute<>* src = script->first_attribute("src");
+
     const char* scriptData = NULL;
     if(src) {
       lua_pushstring(L, src->value());
@@ -643,6 +711,9 @@ extern "C" {
 
     std::string str;
     rapidxml::print(std::back_inserter(str), *tmpl, rapidxml::print_no_indenting);
+    for (rapidxml::xml_node<>* node = doc.first_node("style"); node; node = node->next_sibling("style")) {
+      rapidxml::print(std::back_inserter(str), *node, rapidxml::print_no_indenting);
+    }
 
     lua_pushstring(L, "template");
     lua_pushstring(L, str.c_str());
@@ -1351,6 +1422,10 @@ extern "C" {
 
   void registerBindings(lua_State* L)
   {
+    lua_pushnumber(L, ImGuiWindowFlags_NoBackground);
+    lua_setglobal(L, "ImGuiWindowFlags_NoBackground");
+    lua_pushnumber(L, ImGuiWindowFlags_NoDecoration);
+    lua_setglobal(L, "ImGuiWindowFlags_NoDecoration");
     lua_pushnumber(L, ImGuiWindowFlags_NoTitleBar);
     lua_setglobal(L, "ImGuiWindowFlags_NoTitleBar");
     lua_pushnumber(L, ImGuiWindowFlags_NoResize);
@@ -1427,6 +1502,14 @@ extern "C" {
     lua_setglobal(L, "ImGuiSelectableFlags_DontClosePopups");
     lua_pushnumber(L, ImGuiSelectableFlags_SpanAllColumns);
     lua_setglobal(L, "ImGuiSelectableFlags_SpanAllColumns");
+    lua_pushnumber(L, ImGuiTabBarFlags_Reorderable);
+    lua_setglobal(L, "ImGuiTabBarFlags_Reorderable");
+    lua_pushnumber(L, ImGuiTabBarFlags_DockNode);
+    lua_setglobal(L, "ImGuiTabBarFlags_DockNode");
+    lua_pushnumber(L, ImGuiTabBarFlags_SaveSettings);
+    lua_setglobal(L, "ImGuiTabBarFlags_SaveSettings");
+    lua_pushnumber(L, ImGuiTabBarFlags_AutoSelectNewTabs);
+    lua_setglobal(L, "ImGuiTabBarFlags_AutoSelectNewTabs");
     lua_pushnumber(L, ImGuiStyleVar_FramePadding);
     lua_setglobal(L, "ImGuiStyleVar_FramePadding");
     lua_pushnumber(L, ImGuiStyleVar_FrameRounding);
@@ -1459,8 +1542,6 @@ extern "C" {
     lua_setglobal(L, "ImGuiCol_FrameBg");
     lua_pushnumber(L, ImGuiCol_WindowBg);
     lua_setglobal(L, "ImGuiCol_WindowBg");
-    lua_pushnumber(L, ImGuiCol_ChildWindowBg);
-    lua_setglobal(L, "ImGuiCol_ChildWindowBg");
     lua_pushnumber(L, ImGuiCol_Border);
     lua_setglobal(L, "ImGuiCol_Border");
     lua_pushnumber(L, ImGuiCol_BorderShadow);
