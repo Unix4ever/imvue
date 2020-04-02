@@ -24,17 +24,32 @@ SOFTWARE.
 #ifndef __IMVUE_CONTEXT_H__
 #define __IMVUE_CONTEXT_H__
 
+#include <map>
+#include "imgui.h"
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include "imgui_internal.h"
+
 namespace ImVue {
 
+  class Context;
   class ComponentContainer;
   class ElementFactory;
+  class Element;
   class ScriptState;
+  class Style;
+  class FontManager;
+  struct Layout;
 
   /**
    * Customization point for file system access
    */
   class FileSystem {
     public:
+      enum Mode {
+        TEXT,
+        BINARY
+      };
+
       typedef void LoadCallback(char* data);
 
       virtual ~FileSystem() {}
@@ -43,9 +58,11 @@ namespace ImVue {
        * Loads file
        *
        * @param path file path
+       * @param size output size to the variable
+       * @param mode file read mode
        * @return loaded data
        */
-      virtual char* load(const char* path) = 0;
+      virtual char* load(const char* path, int* size = NULL, Mode mode = Mode::TEXT) = 0;
 
       /**
        * Load file async
@@ -65,9 +82,11 @@ namespace ImVue {
        * Loads file
        *
        * @param path file path
+       * @param size output size to the variable
+       * @param mode file read mode
        * @return loaded data
        */
-      char* load(const char* path);
+      char* load(const char* path, int* size = NULL, Mode mode = Mode::TEXT);
 
       /**
        * Load file async
@@ -101,19 +120,71 @@ namespace ImVue {
   };
 
   /**
+   * Font manager
+   */
+  class FontManager {
+    public:
+      struct FontHandle {
+        ImFont* font;
+        ImFontConfig cfg;
+        ImVector<ImWchar> glyphRanges;
+        float size;
+      };
+
+      FontManager();
+
+      /**
+       * Load font from disk
+       *
+       * @param name Font name
+       * @param path Font path
+       *
+       * @returns ImFont if succeed
+       */
+      ImFont* loadFontFromFile(const char* name, const char* path, ImVector<ImWchar> glyphRanges);
+
+      /**
+       * Activate font using name
+       *
+       * @param name Font name
+       * @param size Font size
+       *
+       * @returns true if pushed
+       */
+      bool pushFont(const char* name);
+
+      inline FontHandle& getFont(const char* name) {
+        return mFonts.at(ImHashStr(name));
+      }
+
+      FileSystem* fs;
+
+    private:
+      typedef std::map<ImU32, FontHandle> Fonts;
+      Fonts mFonts;
+  };
+
+  /**
    * Object that keeps imvue configuration
    */
-  struct Context {
-    ~Context();
+  class Context {
+    public:
+      ~Context();
 
-    ScriptState* script;
-    TextureManager* texture;
-    ElementFactory* factory;
-    FileSystem* fs;
-    ComponentContainer* root;
-    Context* parent;
-    // additional userdata that will be available from all the components
-    void* userdata;
+      ScriptState* script;
+      TextureManager* texture;
+      ElementFactory* factory;
+      FileSystem* fs;
+      ComponentContainer* root;
+      Context* parent;
+      Style* style;
+      FontManager* fontManager;
+      Layout* layout;
+      // additional userdata that will be available from all the components
+      void* userdata;
+
+      // adjust styles scale using this variable
+      ImVec2 scale;
   };
 
   /**

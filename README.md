@@ -38,6 +38,15 @@ You can either define them using `lua` syntax or `imv` xml file.
 
 `imv` files search path is configured using `package.imvpath` variable.
 
+CSS Styles Support
+------------------
+
+ImVue supports CSS styling and HTML syntax to some extent.
+
+[Styled document example](samples/simple/styled.xml) in action:
+
+![demo](demo.gif)
+
 Vue Special Syntax
 ------------------
 
@@ -65,7 +74,6 @@ Vue Special Syntax
 - Getting `event.target` in event handlers.
 - Changing element properties using refs (RO access only).
 - `${}` eval syntax in attributes.
-- CSS styles.
 - V8 JS integration.
 
 ### Lua Implementation Specifics
@@ -76,33 +84,18 @@ there is no limitation on what you can do. Globals are also available.
 Besides, it will create reactive listeners for each field that was used in the
 evaluation.
 
-Benchmarks
-----------
-
-Rendering 1000 windows with a single button.
-
-```
-------------------------------------------------------------------------------
-Benchmark                                    Time             CPU   Iterations
-------------------------------------------------------------------------------
-ImVueBenchmark/RenderImGuiLuaStatic    1968641 ns      1963054 ns         3493 # lua bindings
-ImVueBenchmark/RenderImGuiStatic       1894949 ns      1894921 ns         3654 # vanilla ImGui
-ImVueBenchmark/RenderImVueScripted     1909691 ns      1909661 ns         3615 # imgui with lua scripting enabled
-ImVueBenchmark/RenderImVueStatic       1888849 ns      1888819 ns         3667 # static xml template
-```
-
 Dependencies
 ------------
 
 - ImGui without any modifications.
 - NanoSVG is used for image rendering. Using customized rasterizer.
 - RapidXML is used for XML parsing.
+- customized version of [LibCSS](https://github.com/Unix4ever/libcss).
 
 Optional Core Dependecies
 -------------------------
 
 - Lua 5.1+/LuaJIT 2.0.5+ - adds script interpreter.
-- katana-parser allows reading CSS to change widgets style.
 
 Samples Dependencies
 --------------------
@@ -119,7 +112,3 @@ Build
 1. Run:
 
 `make build`
-
-### Using conan
-
-TODO

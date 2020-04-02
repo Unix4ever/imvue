@@ -24,6 +24,8 @@ SOFTWARE.
 #define __IMVUE_ERRORS_H__
 
 #include <stdexcept>
+#include <string>
+#include "imgui.h"
 
 namespace ImVue {
 
@@ -58,6 +60,17 @@ namespace ImVue {
 #else
 #define IMVUE_EXCEPTION(cls, ...) throw cls(format(__VA_ARGS__))
 #endif
+  
+  /**
+   * Style related errors
+   */
+  class StyleError : public std::runtime_error {
+    public:
+      StyleError(const std::string& detailedMessage)
+        : runtime_error("Style error: " + detailedMessage)
+      {
+      }
+  };
 
   /**
    * Raised when script execution fails

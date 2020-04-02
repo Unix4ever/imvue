@@ -1,8 +1,30 @@
+/*
+Copyright (c) 2019 Artem Chernyshev
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 #include "imvue_element.h"
 #include "imvue_generated.h"
 #include "imgui.h"
 #include "imvue.h"
-#include "imvue_extensions.h"
+#include "imvue_style.h"
 #include "imgui_internal.h"
 #include "rapidxml.hpp"
 #include <iostream>
@@ -84,10 +106,6 @@ namespace ImVue {
     }
   }
 
-  // ComponentContainer
-  // should create a new context
-  // define itself as a root object
-  //
   ComponentContainer::ComponentContainer()
     : mDocument(0)
     , mRawData(NULL)
@@ -169,7 +187,12 @@ namespace ImVue {
   {
     Element* res = NULL;
     Context* ctx = mCtx;
-    const ElementBuilder* builder = mFactory->get(node->name());
+    const char* nodeName = node->name();
+    if(nodeName[0] == '\0') {
+      nodeName = TEXT_NODE;
+    }
+
+    const ElementBuilder* builder = mFactory->get(nodeName);
     if(builder) {
       res = builder->create(node, ctx, sctx, parent);
     } else {
@@ -268,17 +291,32 @@ namespace ImVue {
 
     rapidxml::xml_node<>* scriptNode = root->first_node("script");
     if(scriptNode && mScriptState) {
-      rapidxml::xml_attribute<>* src = scriptNode->first_attribute("src");
-      if(src) {
-        char* rawData = mCtx->fs->load(src->value());
-        if(!rawData) {
-          IMVUE_EXCEPTION(ElementError, "failed to load document %s", src->value());
-          return;
+      char* data = getNodeData(mCtx, scriptNode);
+      if(data) {
+        try {
+          mScriptState->initialize(data);
+        } catch(...) {
+          ImGui::MemFree(data);
+          throw;
         }
-        mScriptState->initialize(rawData);
-        ImGui::MemFree(rawData);
       } else {
         mScriptState->initialize(scriptNode->value());
+      }
+    }
+
+    for (rapidxml::xml_node<>* node  = root->first_node("style"); node; node = node->next_sibling("style")) {
+      char* data = getNodeData(mCtx, node);
+      bool scoped = node->first_attribute("scoped") != NULL;
+
+      if(data) {
+        try {
+          mCtx->style->load(data, scoped);
+        } catch(...) {
+          ImGui::MemFree(data);
+          throw;
+        }
+      } else {
+        mCtx->style->load(node->value(), scoped);
       }
     }
 
@@ -360,7 +398,24 @@ namespace ImVue {
     if(ref && mScriptState) {
       mScriptState->addReference(ref, this);
     }
-    createChildren(mDocument);
+    rapidxml::xml_node<>* tmpl = mDocument->first_node("template");
+    createChildren(tmpl ? tmpl : mDocument);
+
+    for (rapidxml::xml_node<>* node  = mDocument->first_node("style"); node; node = node->next_sibling("style")) {
+      char* data = getNodeData(mCtx, node);
+      bool scoped = node->first_attribute("scoped") != NULL;
+
+      if(data) {
+        try {
+          mCtx->style->load(data, scoped);
+        } catch(...) {
+          ImGui::MemFree(data);
+          throw;
+        }
+      } else {
+        mCtx->style->load(node->value(), scoped);
+      }
+    }
 
     // clear change listeners to avoid triggering reactive change for each prop initial setup
     if(mCtx->script)

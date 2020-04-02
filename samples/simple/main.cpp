@@ -104,7 +104,7 @@ int main(int argc, char** argv)
     ImGui::StyleColorsDark();
     //ImGui::StyleColorsLight();
 
-    float scale = 1.0f;
+    float scale = 1.5f;
 
     ImGuiStyle& style = ImGui::GetStyle();
     style.ScaleAllSizes(scale);
@@ -144,6 +144,8 @@ int main(int argc, char** argv)
           new ImVue::LuaScriptState(L),
           new OpenGL2TextureManager()
       );
+
+      ctx->scale = ImVec2(scale, scale);
 
       ImVue::Document document(ctx);
       const char* page = "simple.xml";

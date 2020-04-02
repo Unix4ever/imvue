@@ -71,7 +71,9 @@ namespace ImVue {
       }
 {%- if element.fields %}
 {%- for field in element.fields %}
+{%- if field.define %}
       {{ field.field_type | replace('const', '') | trim }} {{ field.field_name }};
+{%- endif %}
 {%- endfor %}
 {%- endif %}
   };
@@ -106,9 +108,14 @@ namespace ImVue {
 {%- for element in elements %}
     factory.element<{{element.cls}}>("{{ element.tag }}")
 {%- for field in element.fields %}
+{%- if field.define %}
       .{{ 'attribute("' + field.attr_name + '", ' if field.param_read != element.from_text | d(None) else 'text(' }}&{{ element.cls }}::{{ field.param_read }}{{ ', true' if field.required else '' }})
+{%- endif %}
 {%- endfor %};
 {% endfor %}
+
+    factory.element<Text>(TEXT_NODE)
+      .text(&Text::setText, true);
 
     factory.element<CollapsingHeader>("collapsing-header")
       .attribute("label", &CollapsingHeader::label)
@@ -118,6 +125,7 @@ namespace ImVue {
     factory.element<Document>("template");
     factory.element<Element>("__element__")
         .handler<MouseEventHandler>("click")
+        .handler<MouseEventHandler>("doubleclick")
         .handler<MouseEventHandler>("mousedown")
         .handler<MouseEventHandler>("mouseup")
         .handler<MouseEventHandler>("mouseover")
@@ -126,9 +134,11 @@ namespace ImVue {
         .handler<KeyboardEventHandler>("keydown")
         .handler<KeyboardEventHandler>("keyup")
         .handler<KeyboardEventHandler>("keypress")
+        .attribute("size", &Element::size)
         .attribute("id", &Element::id)
         .attribute("key", &Element::key)
-        .attribute("ref", &Element::ref);
+        .attribute("ref", &Element::ref)
+        .setter("style", &Element::setInlineStyle);
 
     factory.element<Slot>("slot");
     return res;

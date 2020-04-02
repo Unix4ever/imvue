@@ -15,10 +15,10 @@ add_library(imgui_sdl2
 
 set(LIBS
   imgui
+  ${ADDITIONAL_LIBS}
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
-  #${SDL2_LIBRARIES}
-  ${LUA_LIBRARIES}
+  ${SDL2_LIBRARIES}
   SDL2::SDL2main
   SDL2::SDL2-static
 )
