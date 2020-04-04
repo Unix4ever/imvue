@@ -136,7 +136,7 @@
     margin-bottom: 2px;
   }
 
-  input[type="text"], input[type="password"] {
+  input[type="text"], input[type="password"], input[type="number"] {
     display: block;
     padding: 0.2em 0.5em;
     margin: 2px 2px 10px 2px;
@@ -145,7 +145,7 @@
     background-color: #222222;
   }
 
-  input[type="text"]:active, input[type="password"]:active {
+  input[type="text"]:active, input[type="password"]:active, input[type="number"]:active {
     margin-top: 0px;
     margin-left: 0px;
     margin-right: 0px;
@@ -243,6 +243,10 @@
           <label>Range input:</label>
           <span>
             <input type="range" style="display: inline-block; width: 50%" min="0" max="20" step="0.1" v-model="slide"/>
+          </span>
+          <label>Number input:</label>
+          <span>
+            <input type="number" style="display: inline-block; width: 50%" min="0" max="20" step="0.1" v-model="slide"/>
           </span>
           <label>Checkboxes sharing the same model:</label>
           <input style="margin-right: 0.2rem; margin-top: 0.2rem; display: block" type="checkbox" value="first checkbox" v-model="arr"/>

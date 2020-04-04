@@ -150,7 +150,7 @@ namespace ImVue {
       /**
        * Creates component
        */
-      Element* createComponent(rapidxml::xml_node<>* node, Context* ctx, ScriptState::Context* sctx);
+      Element* createComponent(rapidxml::xml_node<>* node, Context* ctx, ScriptState::Context* sctx, Element* parent);
 
       void parseXML(const char* data);
 
