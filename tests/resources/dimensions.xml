@@ -1,0 +1,25 @@
+<style>
+  .test {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 300px;
+    height: 300px;
+    padding: 0;
+    margin: 0;
+  }
+</style>
+
+<template>
+  <window name="test" class="test" :flags="ImGuiWindowFlags_NoTitleBar">
+    <dimensions-test/>
+  </window>
+</template>
+
+<script>
+  return ImVue.new({
+    components = {
+      ['dimensions-test'] = require 'dimensions'
+    }
+  })
+</script>

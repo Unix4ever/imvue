@@ -210,6 +210,7 @@ namespace ImVue {
         , max(100.0f)
         , step(1.0f)
         , name(0)
+        , speed(1.0f)
         , mValue(0)
         , mModel(0)
         , mValueUpdated(false)
@@ -377,6 +378,10 @@ namespace ImVue {
             break;
           case RANGE:
             changed = ImGui::SliderFloat(placeholder ? placeholder : "##slider", &mSliderValue, min, max, format ? format : "%.3f", step);
+            break;
+          case NUMBER:
+            changed = ImGui::DragFloat(placeholder ? placeholder : "##dragfloat", &mSliderValue, speed, min, max, format ? format : "%.3f", step);
+            break;
           default:
             // nothing
             break;
@@ -427,6 +432,8 @@ namespace ImVue {
           mType = RADIO;
         } else if(ImStricmp(type, "range") == 0) {
           mType = RANGE;
+        } else if(ImStricmp(type, "number") == 0) {
+          mType = NUMBER;
         }
 
         if(mType == TEXT || mType == PASSWORD) {
@@ -487,6 +494,8 @@ namespace ImVue {
       // radio only
       char* name;
 
+      // number only
+      float speed;
     private:
 
       void syncModel(bool write = false)
@@ -515,6 +524,7 @@ namespace ImVue {
             case RADIO:
               (*mScriptState)[mModel] = mValue ? mValue : placeholder;
               break;
+            case NUMBER:
             case RANGE:
               (*mScriptState)[mModel] = mSliderValue;
             default:
@@ -553,6 +563,7 @@ namespace ImVue {
                 resetState(CHECKED);
 
               break;
+            case NUMBER:
             case RANGE:
               mSliderValue = object.as<float>();
             default:
@@ -619,6 +630,7 @@ namespace ImVue {
       .attribute("max", &Input::max)
       .attribute("step", &Input::step)
       .attribute("format", &Input::format)
+      .attribute("speed", &Input::speed)
       .attribute("placeholder", &Input::placeholder);
   }
 

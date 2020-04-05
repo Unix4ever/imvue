@@ -195,6 +195,7 @@ namespace ImVue {
     Style* style = new Style(ctx->style);
     Context* child = createContext(ctx->factory, script, ctx->texture, ctx->fs, ctx->fontManager, style, ctx->userdata);
     child->parent = ctx;
+    child->scale = ctx->scale;
     return child;
   }
 }

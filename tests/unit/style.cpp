@@ -4,6 +4,7 @@
 #include "imvue_generated.h"
 #include "imvue_errors.h"
 #include "utils.h"
+#include "extras/xhtml.h"
 
 #if defined(WITH_LUA)
 #include "lua/script.h"
@@ -760,3 +761,83 @@ INSTANTIATE_TEST_CASE_P(
 #endif
  ));
 
+#if defined(WITH_LUA)
+
+class TestStylesComponents : public ::testing::Test {
+
+  public:
+
+    TestStylesComponents()
+      : mDoc(0)
+    {
+    }
+
+    ~TestStylesComponents()
+    {
+      if(mDoc) {
+        delete mDoc;
+        mDoc = 0;
+      }
+    }
+
+    void SetUp() override
+    {
+      L = luaL_newstate();
+      luaL_openlibs(L);
+      ImVue::registerBindings(L);
+    }
+
+    void TearDown() override
+    {
+      if(mDoc) {
+        delete mDoc;
+        mDoc = 0;
+      }
+      lua_close(L);
+    }
+
+    ImVue::Document& createDoc(const char* path)
+    {
+      if(mDoc) {
+        delete mDoc;
+      }
+
+      ImVue::ElementFactory* factory = ImVue::createElementFactory();
+      factory->element<TestElement>("test");
+
+      ImVue::Context* ctx = ImVue::createContext(factory, new ImVue::LuaScriptState(L));
+      ImVue::Document doc(ctx);
+      char* data = ctx->fs->load(path);
+      try {
+        mDoc = new ImVue::Document(ctx);
+        mDoc->parse(data);
+      } catch(...) {
+        delete mDoc;
+        ImGui::MemFree(data);
+        throw;
+      }
+      ImGui::MemFree(data);
+
+      return *mDoc;
+    }
+
+  private:
+    ImVue::Document* mDoc;
+    lua_State* L;
+};
+
+TEST_F(TestStylesComponents, Dimensions)
+{
+  ImVue::Document& d = createDoc("dimensions.xml");
+  ImVector<ImVue::HtmlContainer*> els = d.getChildren<ImVue::HtmlContainer>("#check", true);
+
+  ASSERT_GT(els.size(), 0);
+
+  renderDocument(d);
+
+  ImVue::HtmlContainer* div = els[0];
+  EXPECT_EQ(div->computedSize.x, 300);
+  EXPECT_EQ(div->computedSize.y, 300);
+}
+
+#endif

@@ -530,6 +530,7 @@ namespace ImVue {
           } else {
             pos = window->Pos;
           }
+          pos -= window->Scroll;
           break;
         }
       case CSS_POSITION_FIXED:
@@ -1054,7 +1055,7 @@ namespace ImVue {
     ImGuiWindow* window = GetCurrentWindowNoDefault();
     if(window){
       Element* parent = e->getParent();
-      while(parent && parent->display == CSS_DISPLAY_INLINE) {
+      while(parent && (parent->display == CSS_DISPLAY_INLINE || (parent->getFlags() & Element::PSEUDO_ELEMENT) != 0)) {
         parent = parent->getParent();
       }
 
@@ -1348,8 +1349,6 @@ namespace ImVue {
     if (code != CSS_OK)
       IMVUE_EXCEPTION(StyleError, "failed to append base stylesheet: %s", css_error_to_string(code));
 
-    if(mParent)
-      mParent->appendSheets(ctx, false);
     appendSheets(ctx, true);
     return ctx;
   }
@@ -1369,6 +1368,10 @@ namespace ImVue {
 
   void Style::appendSheets(css_select_ctx* ctx, bool scoped)
   {
+    if(mParent) {
+      mParent->appendSheets(ctx, false);
+    }
+
     for(int i = 0; i < mSheets.size(); ++i) {
       if(mSheets[i].scoped && !scoped) {
         continue;

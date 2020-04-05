@@ -197,7 +197,7 @@ namespace ImVue {
       res = builder->create(node, ctx, sctx, parent);
     } else {
       // then try to create a component
-      res = createComponent(node, ctx, sctx);
+      res = createComponent(node, ctx, sctx, parent);
     }
 
     if(res && sctx) {
@@ -206,7 +206,7 @@ namespace ImVue {
     return res;
   }
 
-  Element* ComponentContainer::createComponent(rapidxml::xml_node<>* node, Context* ctx, ScriptState::Context* sctx)
+  Element* ComponentContainer::createComponent(rapidxml::xml_node<>* node, Context* ctx, ScriptState::Context* sctx, Element* parent)
   {
     ImU32 nodeID = ImHashStr(node->name());
     if(mComponents.count(nodeID) == 0) {
@@ -215,7 +215,7 @@ namespace ImVue {
 
     Component* component = mComponents[nodeID].create();
     try {
-      component->configure(node, ctx, sctx, this);
+      component->configure(node, ctx, sctx, parent);
     } catch(...) {
       delete component;
       throw;
@@ -343,7 +343,7 @@ namespace ImVue {
     , mData(data)
   {
     parseXML(tmpl.get());
-    mFlags = mFlags | Element::COMPONENT;
+    mFlags = mFlags | Element::COMPONENT | Element::PSEUDO_ELEMENT;
   }
 
   Component::~Component()
