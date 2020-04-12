@@ -7,6 +7,7 @@ set(SOURCES
   unit/imvue_tests.cpp
   unit/state.cpp
   unit/style.cpp
+  unit/layout.cpp
 )
 
 include_directories(${GTEST_INCLUDE_DIRS})

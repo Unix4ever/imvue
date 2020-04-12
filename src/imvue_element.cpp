@@ -83,6 +83,7 @@ namespace ImVue {
     }
   }
 
+
   MouseEventHandler::MouseEventHandler(Element* element, const char* handlerName, const char* script)
     : InputHandler(element, handlerName, script)
     , mType(Click)
@@ -228,7 +229,6 @@ namespace ImVue {
     , mFactory(0)
     , mBuilder(0)
     , mTextureManager(0)
-    , mClickHandler(NULL)
     , mScriptState(NULL)
     , mCtx(0)
     , mScriptContext(0)
@@ -238,6 +238,7 @@ namespace ImVue {
     , mState(0)
     , mRequiredAttrsCount(0)
     , mConfigured(false)
+    , mType(UNTYPED)
   {
     padding[0] = -1.0f;
     padding[1] = -1.0f;
@@ -252,9 +253,6 @@ namespace ImVue {
 
   Element::~Element()
   {
-    if(mClickHandler)
-      ImGui::MemFree(mClickHandler);
-
     if(mScriptState) {
       for(Element::ReactiveFields::const_iterator iter = mReactiveFields.begin(); iter != mReactiveFields.end(); ++iter) {
         bool success = mScriptState->removeListener(iter->first, this);
@@ -307,6 +305,7 @@ namespace ImVue {
     mParent = parent;
     mScriptContext = sctx ? sctx : (parent ? parent->getContext(true) : NULL);
     mNode = node;
+    mType = node ? node->name() : UNTYPED;
     mFactory = ctx->factory;
     mTextureManager = ctx->texture;
     if(ImStricmp(node->name(), "window") == 0) {
@@ -351,7 +350,18 @@ namespace ImVue {
 
   void Element::setSize(const ImVec2& s)
   {
-    size = s;
+    if(s.x > 0) {
+      size.x = ImMax(s.x, minSize.x);
+    } else {
+      size.y = 0;
+    }
+
+    if(s.y > 0) {
+      size.y = ImMax(s.y, minSize.y);
+    } else {
+      size.y = 0;
+    }
+
     if(mFlags & WINDOW) {
       ImGui::SetNextWindowSize(size);
     } // widgets have no common method to set size unfortunately
@@ -394,8 +404,10 @@ namespace ImVue {
     if (g.NavDisableMouseHover && !g.NavDisableHighlight)
       return ImGui::IsItemFocused();
 
+    ImRect itemRect = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMin() + getSize());
+    itemRect.ClipWith(window->ClipRect);
     // Test for bounding box overlap, as updated as ItemAdd()
-    if (!(window->DC.LastItemStatusFlags & ImGuiItemStatusFlags_HoveredRect) && !ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMin() + getSize()).Contains(ImGui::GetIO().MousePos) )
+    if (!(window->DC.LastItemStatusFlags & ImGuiItemStatusFlags_HoveredRect) && !itemRect.Contains(ImGui::GetIO().MousePos) )
       return false;
     IM_ASSERT((flags & (ImGuiHoveredFlags_RootWindow | ImGuiHoveredFlags_ChildWindows)) == 0);   // Flags not supported by this function
 
@@ -600,17 +612,20 @@ namespace ImVue {
       layout->beginElement(this);
 
     pos = ImGui::GetCursorPos();
-    ImGuiWindow* window = GetCurrentWindowNoDefault();
-    if(window) {
+    if(mStyle.window) {
+      ImVec2 p = mStyle.localToGlobal(pos);
       // render decoration
       mStyle.decoration.render(
           ImRect(
-            window->Pos - window->Scroll + pos,
-            window->Pos - window->Scroll + pos + getSize()
+            p,
+            p + getSize()
           )
       );
     }
 
+    if(size.x > 0) {
+      ImGui::SetNextItemWidth(size.x);
+    }
     try {
       renderBody();
     } catch (...) {
@@ -655,9 +670,19 @@ namespace ImVue {
     }
   }
 
-  ContainerElement* Element::getParent()
+  ContainerElement* Element::getParent(bool noPseudoElements)
   {
-    return mParent ? static_cast<ContainerElement*>(mParent) : NULL;
+    ContainerElement* element = NULL;
+    if(mParent) {
+      element = static_cast<ContainerElement*>(mParent);
+
+      if(noPseudoElements) {
+        while(element->isPseudoElement()) {
+          element = element->getParent();
+        }
+      }
+    }
+    return element;
   }
 
   void Element::computeProperties()
@@ -757,6 +782,8 @@ namespace ImVue {
   }
 
   ContainerElement::ContainerElement()
+    : mLayout(0)
+    , mPostRenderHook(0)
   {
     mFlags |= Element::CONTAINER;
   }
@@ -764,6 +791,9 @@ namespace ImVue {
   ContainerElement::~ContainerElement()
   {
     removeChildren();
+    if(mLayout) {
+      delete mLayout;
+    }
   }
 
   void ContainerElement::removeChildren()
@@ -777,9 +807,30 @@ namespace ImVue {
   void ContainerElement::renderChildren() {
     bool pseudoElement = isPseudoElement();
     Layout* backup = mCtx->layout;
-    if(!pseudoElement) {
-      mCtx->layout = &mLayout;
-      mLayout.begin(this);
+
+    if(((mInvalidFlags & Element::LAYOUT) || mLayout == 0) && !pseudoElement) {
+      if(mLayout) {
+        delete mLayout;
+        mLayout = 0;
+      }
+      switch(display) {
+        case CSS_DISPLAY_TABLE:
+          break;
+        case CSS_DISPLAY_INLINE_FLEX:
+        case CSS_DISPLAY_FLEX:
+          mLayout = new FlexLayout();
+          break;
+        default:
+          mLayout = new StaticLayout();
+          break;
+      }
+
+      mInvalidFlags ^= Element::LAYOUT;
+    }
+
+    if(mLayout) {
+      mCtx->layout = mLayout;
+      mLayout->begin(this);
     }
 
     int i = 0;
@@ -787,11 +838,26 @@ namespace ImVue {
       Element* element = *el;
       element->index = i++;
       element->render();
+      if(mPostRenderHook) {
+        mPostRenderHook(element);
+      }
     }
 
-    if(!pseudoElement) {
-      mLayout.end();
+    if(mLayout) {
+      mLayout->end();
       mCtx->layout = backup;
+    }
+  }
+
+  void ContainerElement::forEachChild(ElementCallback callback, void* userdata)
+  {
+    for(Elements::iterator el = mChildren.begin(); el != mChildren.end(); el++) {
+      Element* element = *el;
+      if(element->isPseudoElement() && element->isContainer()) {
+        static_cast<ContainerElement*>(element)->forEachChild(callback, userdata);
+      } else {
+        callback(element, userdata);
+      }
     }
   }
 

@@ -892,4 +892,6 @@ INSTANTIATE_TEST_CASE_P(
     std::make_tuple("validateCallback", "0", false)
   ));
 
+// TODO: component slot test
+
 #endif

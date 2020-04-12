@@ -1,0 +1,30 @@
+<style>
+  * {
+    padding: 0;
+    margin: 0;
+  }
+
+  .flex {
+    display: flex;
+  }
+</style>
+<template>
+  <div class="flex">
+    <div>1</div>
+    <div/>
+    <span/>
+    <input type="text"/>
+  </div>
+</template>
+<script>
+  result = {
+    success = false
+  }
+
+  imvue = ImVue.new({
+    runTest = function(self)
+      result.success = true
+    end
+  })
+  return imvue
+</script>

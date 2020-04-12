@@ -180,6 +180,7 @@ namespace ImVue {
         , mMounted(other.mMounted)
         , mRefs(other.mRefs)
       {
+        mLayout = 0;
         (*mRefs)++;
       }
 

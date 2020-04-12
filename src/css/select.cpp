@@ -360,6 +360,7 @@ namespace ImVue {
     return CSS_OK;
   }
 
+  // TODO: not implemented yet
   css_error node_has_attribute_dashmatch(void *pw, void *n,
       const css_qname *qname,
       lwc_string *value,
@@ -373,6 +374,7 @@ namespace ImVue {
     return CSS_OK;
   }
 
+  // TODO: not implemented yet
   css_error node_has_attribute_includes(void *pw, void *n,
       const css_qname *qname,
       lwc_string *value,
@@ -386,6 +388,7 @@ namespace ImVue {
     return CSS_OK;
   }
 
+  // TODO: not implemented yet
   css_error node_has_attribute_prefix(void *pw, void *n,
       const css_qname *qname,
       lwc_string *value,
@@ -399,6 +402,7 @@ namespace ImVue {
     return CSS_OK;
   }
 
+  // TODO: not implemented yet
   css_error node_has_attribute_suffix(void *pw, void *n,
       const css_qname *qname,
       lwc_string *value,
@@ -412,6 +416,7 @@ namespace ImVue {
     return CSS_OK;
   }
 
+  // TODO: not implemented yet
   css_error node_has_attribute_substring(void *pw, void *n,
       const css_qname *qname,
       lwc_string *value,

@@ -836,8 +836,9 @@ TEST_F(TestStylesComponents, Dimensions)
   renderDocument(d);
 
   ImVue::HtmlContainer* div = els[0];
-  EXPECT_EQ(div->computedSize.x, 300);
-  EXPECT_EQ(div->computedSize.y, 300);
+  ImVec2 size = div->getSize();
+  EXPECT_EQ(size.x, 300);
+  EXPECT_EQ(size.y, 300);
 }
 
 #endif

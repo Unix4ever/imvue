@@ -1,0 +1,146 @@
+<style>
+  @font-face {
+    font-family: "DroidSans";
+    src: local("../../../imgui/misc/fonts/DroidSans.ttf");
+  }
+
+  @font-face {
+    font-family: "MaterialIcons";
+    src: local("../../../samples/fonts/MaterialIcons-Regular.ttf");
+    unicode-range: U+E000-EB60;
+  }
+
+  template {
+    font-family: DroidSans;
+    padding: 5px;
+  }
+
+  .flex {
+    display: flex;
+  }
+
+  .flex-vertical {
+    display: inline-flex;
+    flex-direction: column;
+  }
+
+  .shape {
+    background-color: #FFCC00;
+    padding: 10px;
+    font-size: 2rem;
+    margin: 0.2rem;
+    border-radius: 5px;
+    min-width: 35px;
+  }
+
+  .shape:hover, .shape:active {
+    background-color: #FFFFFF;
+    color: #000000;
+  }
+
+  .flex-0 {
+    background-color: #777777;
+  }
+
+  .flex-1 {
+    background-color: #447733;
+    flex-grow: 1;
+  }
+
+  .flex-2 {
+    background-color: #FFCC00;
+    flex-grow: 2;
+  }
+</style>
+
+<template>
+  <window name="Layouts Demo">
+    <html>
+      <body>
+        Horizontal flex
+        <div class="flex">
+          <div class="shape flex-0" :style="'width: ' .. self.value .. 'px'" v-on:click="self.value = self.value + self.delta"> </div>
+          <div class="shape flex-1">1</div>
+          <div class="shape flex-2">2</div>
+        </div>
+        <div class="flex">
+          <div class="shape flex-1">1</div>
+          <div class="shape flex-0" :style="'width: ' .. self.value .. 'px'" v-on:click="self.value = self.value + self.delta"> </div>
+          <div class="shape flex-2">2</div>
+        </div>
+        <div class="flex">
+          <div class="shape flex-1">1</div>
+          <div class="shape flex-2">2</div>
+          <div class="shape flex-0" :style="'width: ' .. self.value .. 'px'" v-on:click="self.value = self.value + self.delta"> </div>
+        </div>
+        Vertical flex (auto)
+        <div>
+          <div class="flex-vertical">
+            <div class="shape flex-0" :style="'width: ' .. self.value .. 'px'" v-on:click="self.value = self.value + self.delta"> </div>
+            <div class="shape flex-1">1</div>
+            <div class="shape flex-2">2</div>
+          </div>
+          <div class="flex-vertical">
+            <div class="shape flex-1">1</div>
+            <div class="shape flex-0" :style="'width: ' .. self.value .. 'px'" v-on:click="self.value = self.value + self.delta"> </div>
+            <div class="shape flex-2">2</div>
+          </div>
+          <div class="flex-vertical">
+            <div class="shape flex-1">1</div>
+            <div class="shape flex-2">2</div>
+            <div class="shape flex-0" :style="'width: ' .. self.value .. 'px'" v-on:click="self.value = self.value + self.delta"> </div>
+          </div>
+        </div>
+        Vertical flex (scaled)
+        <div style="height: 500px; overflow: hidden">
+          <div class="flex-vertical" style="height: 100%; flex-grow: 1">
+            <div class="shape flex-0" :style="'height: ' .. self.value .. 'px'" v-on:click="self.value = self.value + self.delta">s</div>
+            <div class="shape flex-1">1</div>
+            <div class="shape flex-2">2</div>
+          </div>
+          <div class="flex-vertical" style="height: 100%; flex-grow: 1">
+            <div class="shape flex-1">1</div>
+            <div class="shape flex-0" :style="'height: ' .. self.value .. 'px'" v-on:click="self.value = self.value + self.delta">s</div>
+            <div class="shape flex-2">2</div>
+          </div>
+          <div class="flex-vertical" style="height: 100%; flex-grow: 1">
+            <div class="shape flex-1">1</div>
+            <div class="shape flex-2">2</div>
+            <div class="shape flex-0" :style="'height: ' .. self.value .. 'px'" v-on:click="self.value = self.value + self.delta">s</div>
+          </div>
+        </div>
+        Flex in table mode
+        <div>
+          <div class="flex">
+            <div class="shape flex-1">1</div>
+            <div class="shape flex-1">2</div>
+            <div class="shape flex-1">3</div>
+          </div>
+          <div class="flex">
+            <div class="shape flex-1">1</div>
+            <div class="shape flex-1">2</div>
+            <div class="shape flex-1">3</div>
+          </div>
+        </div>
+        Dynamic flex
+        <div>
+          <div class="flex">
+            <div v-for="(element, index) in self.elements" class="shape" :style="'flex-grow: ' .. tostring(index)" v-on:click="self.elements[#self.elements + 1] = #self.elements + 1">a</div>
+          </div>
+        </div>
+      </body>
+    </html>
+  </window>
+</template>
+
+<script>
+  return ImVue.new({
+    data = function()
+      return {
+        value = 50,
+        delta = 20,
+        elements = {1}
+      }
+    end
+  })
+</script>

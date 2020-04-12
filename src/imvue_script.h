@@ -487,7 +487,9 @@ namespace ImVue {
        * <element ref="id"/>
        */
       inline void addReference(const char* ref, Element* element) {
-        mRefMap[ImHashStr(ref)] = element;
+        RefHash hash = ImHashStr(ref);
+        IM_ASSERT(mRefMap.count(hash) == 0);
+        mRefMap[hash] = element;
       }
 
       /**

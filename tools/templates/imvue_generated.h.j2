@@ -92,12 +92,26 @@ namespace ImVue {
       }
 
       void renderBody() {
-        if(ImGui::CollapsingHeader(label, flags))
+        ImGuiWindow* window = GetCurrentWindowNoDefault();
+        float backup;
+        if(window) {
+          backup = window->WorkRect.Max.x;
+          Element* parent = getParent();
+          window->WorkRect.Max.x = parent->pos.x + parent->contentWidth();
+        }
+        ImGui::BeginGroup();
+        if(ImGui::CollapsingHeader(label, flags)) {
           ContainerElement::renderBody();
+        }
+        ImGui::EndGroup();
+
+        if(window)
+          window->WorkRect.Max.x = backup;
       }
       char* label;
       ImGuiTreeNodeFlags flags;
   };
+
 
   // fills in all default elements to the element element factory
   static ElementFactory* createElementFactory()

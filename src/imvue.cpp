@@ -295,6 +295,7 @@ namespace ImVue {
       if(data) {
         try {
           mScriptState->initialize(data);
+          ImGui::MemFree(data);
         } catch(...) {
           ImGui::MemFree(data);
           throw;
