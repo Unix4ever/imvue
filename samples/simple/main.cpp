@@ -104,9 +104,11 @@ int main(int argc, char** argv)
     ImGui::StyleColorsDark();
     //ImGui::StyleColorsLight();
 
-    float scale = 1.5f;
+    float scale = 1.0f;
 
     ImGuiStyle& style = ImGui::GetStyle();
+    style.FrameRounding = 5.0f;
+    style.FrameBorderSize = 1.0f;
     style.ScaleAllSizes(scale);
 
     // Setup Platform/Renderer bindings

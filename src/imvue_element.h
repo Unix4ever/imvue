@@ -67,6 +67,11 @@ namespace ImVue {
    */
   static const char* TEXT_NODE = "__textnode__";
 
+  /**
+   * UNTYPED ELEMENT
+   */
+  static const char* UNTYPED = "__untyped__";
+
   // attribute converting utilities
   // used for parsing statically defined fields as ints/floats/arrays etc
   namespace detail {
@@ -442,9 +447,10 @@ namespace ImVue {
       typedef std::vector<Element*> Elements;
 
       enum InvalidationFlag {
-        BUILD = 1 << 0,
-        STYLE = 1 << 1,
-        MODEL = 1 << 2
+        BUILD  = 1 << 0,
+        STYLE  = 1 << 1,
+        MODEL  = 1 << 2,
+        LAYOUT = 1 << 3
       };
 
       // mutually excluding element states
@@ -464,7 +470,8 @@ namespace ImVue {
         PSEUDO_ELEMENT  = 1 << 1,
         COMPONENT       = 1 << 2,
         WINDOW          = 1 << 3,
-        BUTTON          = 1 << 4
+        BUTTON          = 1 << 4,
+        NO_LAYOUT       = 1 << 5
       };
 
       typedef std::unordered_map<ScriptState::FieldHash, bool> ReactiveFields;
@@ -480,7 +487,7 @@ namespace ImVue {
       /**
        * Gets element type
        */
-      inline const char* getType() const { return mNode->name(); }
+      inline const char* getType() const { (void)UNTYPED; return mType; }
 
       /**
        * Get element flags
@@ -495,7 +502,7 @@ namespace ImVue {
       /**
        * Get parent
        */
-      ContainerElement* getParent();
+      ContainerElement* getParent(bool noPseudoElements = false);
 
       /**
        * Enable element
@@ -559,10 +566,25 @@ namespace ImVue {
       void invalidateFlags(unsigned int flags);
 
       /**
+       * Force element flags
+       */
+      inline void setFlag(Element::Flag flag)
+      {
+        mFlags |= flag;
+      }
+
+      /**
        * Check if Element is container
        */
       inline bool isContainer() const {
         return (mFlags & Element::CONTAINER) != 0;
+      }
+
+      /**
+       * Check if Element shouldn't have layouts enabled
+       */
+      inline bool skipLayout() const {
+        return (mFlags & Element::NO_LAYOUT) != 0;
       }
 
       /**
@@ -607,6 +629,22 @@ namespace ImVue {
 
       inline rapidxml::xml_node<>* node() { return mNode; }
 
+      /**
+       * Get width - left and right padding
+       */
+      inline float contentWidth() const
+      {
+        return getSize().x - padding[0] - padding[2];
+      }
+
+      /**
+       * Get height - top and bottom padding
+       */
+      inline float contentHeight() const
+      {
+        return getSize().y - padding[1] - padding[3];
+      }
+
       void setSize(const ImVec2& size);
 
       inline ImVec2 getSize() const {
@@ -620,6 +658,16 @@ namespace ImVue {
         }
 
         return res;
+      }
+
+      inline void setDisplay(uint16_t d)
+      {
+        if(display != d) {
+          display = d;
+          if(isContainer()) {
+            invalidateFlags(Element::LAYOUT);
+          }
+        }
       }
 
       void setInlineStyle(char* style);
@@ -692,7 +740,7 @@ namespace ImVue {
        * Common size definition
        */
       ImVec2 size;
-
+      ImVec2 minSize;
       ImVec2 computedSize;
 
       /**
@@ -746,6 +794,7 @@ namespace ImVue {
 
       void addHandler(const char* name, const char* value, const ElementBuilder* builder);
 
+
       inline void setState(ElementState s)
       {
         if((mState & s) == 0) {
@@ -779,7 +828,6 @@ namespace ImVue {
       ElementFactory* mFactory;
       ElementBuilder* mBuilder;
       TextureManager* mTextureManager;
-      char* mClickHandler;
       ScriptState* mScriptState;
       ReactiveFields mReactiveFields;
       DirtyProperties mDirtyProperties;
@@ -793,6 +841,7 @@ namespace ImVue {
       int mRequiredAttrsCount;
 
       bool mConfigured;
+      const char* mType;
 
   }; // class Element
 
@@ -882,6 +931,9 @@ namespace ImVue {
 
           if(evaluation && std::strncmp(&str[i], "}}", 2) == 0) {
             Object object = scriptState->getObject(&ss.str()[0], fields, element->getContext());
+            if(!object) {
+              continue;
+            }
             ss = std::stringstream();
             evaluation = false;
             result << object.as<ImString>().c_str();
@@ -1510,7 +1562,19 @@ namespace ImVue {
         return result;
       }
 
+      typedef void(*ElementCallback)(Element*, void*);
+
+      /**
+       * Call function for each element in the container and each for each PSEUDO_ELEMENT children stored in the container
+       *
+       * @param callback Callback function
+       * @param userdata To be passed into callback function
+       */
+      void forEachChild(ElementCallback callback, void* userdata);
+
     protected:
+      typedef void(RenderHook)(Element*);
+
       /**
        * Render container
        */
@@ -1526,7 +1590,9 @@ namespace ImVue {
 
       void renderChildren();
 
-      Layout mLayout;
+      Layout* mLayout;
+
+      RenderHook* mPostRenderHook;
   };
 
   class PseudoElement : public ContainerElement {
@@ -1595,13 +1661,14 @@ namespace ImVue {
 
       bool build()
       {
+        mType = "span";
         if(!mBuilder) {
           mBuilder = mFactory->get(TEXT_NODE);
         }
 
         bool res = Element::build();
         // always display as inline block
-        display = CSS_DISPLAY_INLINE;
+        setDisplay(CSS_DISPLAY_INLINE);
         return res;
       }
 
@@ -1641,6 +1708,7 @@ namespace ImVue {
         }
 
         text = ImStrdup(value);
+        ImGui::MemFree(value);
       }
 
       char* text;
@@ -1655,7 +1723,7 @@ namespace ImVue {
       return false;
     }
 
-    return element->display == CSS_DISPLAY_INLINE_BLOCK || element->display == CSS_DISPLAY_INLINE;
+    return element->style()->displayInline;
   }
 }
 

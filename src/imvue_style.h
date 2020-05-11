@@ -87,7 +87,71 @@ namespace ImVue {
 
   bool setBorder(ComputedStyle& style);
 
+  bool setFlexBasis(ComputedStyle& style);
+
+  bool setOverflow(ComputedStyle& style);
+
+  bool setMinSize(ComputedStyle& style);
+
   class Style;
+
+  struct FlexSettings
+  {
+    // item settings
+    enum Align {
+      Auto,
+      Stretch,
+      FlexStart,
+      FlexEnd,
+      Center,
+      Baseline,
+      FirstBaseline,
+      LastBaseline,
+      Start,
+      End,
+      SelfStart,
+      SelfEnd,
+      Safe,
+      Unsafe,
+      SpaceBetween,
+      SpaceAround,
+      SpaceEvenly,
+      Left,
+      Right
+    };
+
+    float grow;
+    float shrink;
+    float basis;
+    int order;
+    Align align;
+
+    // container settings
+    enum Direction
+    {
+      Row     = 1,
+      Column  = 1 << 1,
+      Reverse = 1 << 2,
+      RowReverse = Row | Reverse,
+      ColumnReverse = Column | Reverse
+    };
+
+    Direction direction;
+
+    enum FlexWrap {
+      NoWrap,
+      Wrap,
+      WrapReverse
+    };
+
+    FlexWrap wrap;
+    Align justifyContent;
+    Align alignContent;
+    Align alignItems;
+
+    ParseUnitsAxis axis;
+  };
+
   /**
    * Style state
    */
@@ -114,6 +178,8 @@ namespace ImVue {
        */
       void end();
 
+      ImVec2 localToGlobal(const ImVec2& pos);
+
       void destroy();
 
       void updateClassCache();
@@ -130,6 +196,7 @@ namespace ImVue {
         , element(other.element)
         , style(0)
         , context(0)
+        , nClipRect(0)
         , nCol(0)
         , nStyle(0)
         , nFonts(0)
@@ -191,25 +258,35 @@ namespace ImVue {
         ImU32 bgCol;
       };
 
+      uint8_t overflowX;
+      uint8_t overflowY;
       Decoration decoration;
+      bool displayBlock;
+      bool displayInline;
+      FlexSettings flex;
+      ImGuiWindow* window;
+
       // style stack
+      int nClipRect;
       int nCol;
       int nStyle;
       int nFonts;
       float fontScale;
 
+      uint16_t widthMode;
+      uint16_t heightMode;
     private:
 
       void initFonts(css_media* media);
 
       void cleanupClassCache();
 
+      void updateFlexSettings();
+
       friend class Style;
       ImVector<styleCallback> mStyleCallbacks;
       css_select_ctx* mSelectCtx;
       ImVector<lwc_string*> mClasses;
-      uint16_t mWidthMode;
-      uint16_t mHeightMode;
       css_stylesheet* mInlineStyle;
       bool mAutoSize;
   };

@@ -223,6 +223,7 @@ namespace ImVue {
     if(s.x <= 0 && s.y <= 0) {
       return;
     }
+
     // TODO: this function definitely has room for improvement
     // 1. try to implement continuous flow for line when drawing using same color
     // 2. loops ?
@@ -506,7 +507,8 @@ namespace ImVue {
       changed = true;
     }
 
-    cs.element->setSize(res);
+    if(changed)
+      cs.element->setSize(res);
     return changed;
   }
 
@@ -518,23 +520,22 @@ namespace ImVue {
     ImVec2 parentSize = cs.contentRegion;
     uint16_t position = css_computed_position(cs.style->styles[CSS_PSEUDO_ELEMENT_NONE]);
     cs.position = position;
-    ImGuiWindow* window = 0;
     Element* parent = cs.element->getParent();
 
     switch(position) {
+      case CSS_POSITION_FIXED:
       case CSS_POSITION_ABSOLUTE:
-        window = GetCurrentWindowNoDefault();
-        if(window) {
+        if(cs.window) {
           if(parent && parent->style()->position == CSS_POSITION_RELATIVE) {
-            pos = window->Pos + parent->pos;
+            pos = cs.window->DC.CursorStartPos + parent->pos;
           } else {
-            pos = window->Pos;
+            pos = cs.window->DC.CursorStartPos;
           }
-          pos -= window->Scroll;
+
+          if(position == CSS_POSITION_FIXED)
+            pos += cs.window->Scroll;
           break;
         }
-      case CSS_POSITION_FIXED:
-        parentSize = ImGui::GetIO().DisplaySize;
         break;
       case CSS_POSITION_RELATIVE:
         pos = cs.elementScreenPosition;
@@ -603,7 +604,8 @@ namespace ImVue {
     } else {
       ImGui::SetCursorScreenPos(pos + offset);
     }
-    cs.element->setSize(size);
+    if(changed)
+      cs.element->setSize(size);
     return changed;
   }
 
@@ -665,7 +667,6 @@ namespace ImVue {
     };
 
     bool defined = false;
-
     for(size_t i = 0; i < 4; i++) {
       if(funcs[i].func(cs.style->styles[CSS_PSEUDO_ELEMENT_NONE], &value, &unit) == CSS_PADDING_SET)
       {
@@ -870,6 +871,78 @@ namespace ImVue {
     return changed;
   }
 
+  bool setFlexBasis(ComputedStyle& cs)
+  {
+    css_fixed value;
+    css_unit unit = CSS_UNIT_PX;
+    if(css_computed_flex_basis(
+      cs.style->styles[CSS_PSEUDO_ELEMENT_NONE],
+      &value,
+      &unit) == CSS_FLEX_BASIS_SET) {
+      cs.flex.basis = parseUnits(value, unit, cs, cs.flex.axis);
+      return true;
+    }
+
+    return false;
+  }
+
+  bool setOverflow(ComputedStyle& cs)
+  {
+    cs.overflowX = css_computed_overflow_x(
+      cs.style->styles[CSS_PSEUDO_ELEMENT_NONE]);
+    cs.overflowY = css_computed_overflow_y(
+      cs.style->styles[CSS_PSEUDO_ELEMENT_NONE]);
+
+    bool addCallback = false;
+    ImRect clipRect = ImRect(ImVec2(FLT_MIN, FLT_MIN), ImVec2(FLT_MAX, FLT_MAX));
+    ImVec2 p = cs.localToGlobal(cs.element->pos);
+    if(cs.overflowX == CSS_OVERFLOW_HIDDEN) {
+      clipRect.Min.x = p.x;
+      clipRect.Max.x = p.x + cs.element->getSize().x;
+      addCallback = true;
+    }
+
+    if(cs.overflowY == CSS_OVERFLOW_HIDDEN) {
+      clipRect.Min.y = p.y;
+      clipRect.Max.y = p.y + cs.element->getSize().y;
+      addCallback = true;
+    }
+
+    if(cs.window) {
+      ImGui::PushClipRect(clipRect.Min, clipRect.Max, true);
+      cs.nClipRect++;
+    }
+
+    return addCallback;
+  }
+
+  bool setMinSize(ComputedStyle& cs)
+  {
+    ImVec2 minSize(0.0f, 0.0f);
+    css_fixed length = 0;
+    css_unit unit = CSS_UNIT_PX;
+    if(css_computed_min_width(
+          cs.style->styles[CSS_PSEUDO_ELEMENT_NONE],
+          &length, &unit) == CSS_MIN_WIDTH_SET) {
+      minSize.x = parseUnits(length, unit, cs, ParseUnitsAxis::X);
+    }
+    minSize.x = ImMax(minSize.x, cs.decoration.thickness[0] + cs.decoration.thickness[2] + cs.decoration.rounding[0] + cs.decoration.rounding[1]);
+
+    if(css_computed_min_height(
+          cs.style->styles[CSS_PSEUDO_ELEMENT_NONE],
+          &length, &unit) == CSS_MIN_HEIGHT_SET) {
+      minSize.y = parseUnits(length, unit, cs, ParseUnitsAxis::Y);
+    }
+    minSize.y = ImMax(minSize.y, cs.decoration.thickness[1] + cs.decoration.thickness[3] + cs.decoration.rounding[2] + cs.decoration.rounding[3]);
+
+    cs.element->minSize = minSize;
+    if(minSize.x == 0 && minSize.y == 0) {
+      return false;
+    }
+
+    return true;
+  }
+
   ComputedStyle::ComputedStyle(Element* target)
     : libcssData(0)
     , fontName(0)
@@ -877,17 +950,25 @@ namespace ImVue {
     , element(target)
     , style(0)
     , context(0)
+    , overflowX(CSS_OVERFLOW_VISIBLE)
+    , overflowY(CSS_OVERFLOW_VISIBLE)
+    , displayBlock(true)
+    , displayInline(false)
+    , window(0)
+    , nClipRect(0)
     , nCol(0)
     , nStyle(0)
     , nFonts(0)
     , fontScale(0)
+    , widthMode(CSS_WIDTH_AUTO)
+    , heightMode(CSS_HEIGHT_AUTO)
     , mSelectCtx(0)
-    , mWidthMode(CSS_WIDTH_AUTO)
-    , mHeightMode(CSS_HEIGHT_AUTO)
     , mInlineStyle(0)
     , mAutoSize(false)
   {
     memset(&decoration, 0, sizeof(Decoration));
+    memset(&flex, 0, sizeof(FlexSettings));
+    flex.align = FlexSettings::Align::Auto;
   }
 
   ComputedStyle::~ComputedStyle()
@@ -904,6 +985,7 @@ namespace ImVue {
 
   bool ComputedStyle::compute(Element* e)
   {
+    window = GetCurrentWindowNoDefault();
     element = e;
     context = e->context();
     css_error code;
@@ -935,6 +1017,10 @@ namespace ImVue {
       return false;
     }
 
+    memset(&decoration, 0, sizeof(Decoration));
+    memset(&flex, 0, sizeof(FlexSettings));
+    flex.align = FlexSettings::Align::Auto;
+
     if(style) {
       if(css_select_results_destroy(style) != CSS_OK) {
         IMVUE_EXCEPTION(StyleError, "failed to destroy style %s", css_error_to_string(code));
@@ -950,8 +1036,40 @@ namespace ImVue {
 
     mStyleCallbacks.clear();
 
-    position = CSS_POSITION_INHERIT;
+    position = css_computed_position(style->styles[CSS_PSEUDO_ELEMENT_NONE]);
     uint16_t display = css_computed_display(style->styles[CSS_PSEUDO_ELEMENT_NONE], false);
+
+    if(position != CSS_POSITION_STATIC && position != CSS_POSITION_INHERIT) {
+      // override inline layout
+      if(display == CSS_DISPLAY_INLINE || display == CSS_DISPLAY_INLINE_BLOCK) {
+        display = CSS_DISPLAY_BLOCK;
+      }
+
+      // override inline flex
+      if(display == CSS_DISPLAY_INLINE_FLEX) {
+        display = CSS_DISPLAY_FLEX;
+      }
+    }
+
+    switch(display) {
+      case CSS_DISPLAY_FLEX:
+      case CSS_DISPLAY_BLOCK:
+      case CSS_DISPLAY_TABLE:
+        displayInline = false;
+        displayBlock = true;
+        break;
+      default:
+        displayInline = true;
+        displayBlock = false;
+        break;
+    }
+
+    // if parent layout is flex, element is neither block nor inline
+    Element* parent = element->getParent(true);
+    if(parent && (parent->display == CSS_DISPLAY_FLEX || parent->display == CSS_DISPLAY_INLINE_FLEX)) {
+      displayBlock = false;
+      displayInline = false;
+    }
 
     // fonts should go first as line height might affect units parser
     initFonts(&media);
@@ -966,17 +1084,17 @@ namespace ImVue {
       css_fixed width = 0;
       css_fixed height = 0;
       css_unit unit = CSS_UNIT_PX;
-      mWidthMode = css_computed_width(
+      widthMode = css_computed_width(
           style->styles[CSS_PSEUDO_ELEMENT_NONE],
           &width, &unit
       );
 
-      mHeightMode = css_computed_height(
+      heightMode = css_computed_height(
           style->styles[CSS_PSEUDO_ELEMENT_NONE],
           &height, &unit
       );
 
-      bool shouldSetDimensions = mWidthMode == CSS_WIDTH_SET || mHeightMode == CSS_HEIGHT_SET;
+      bool shouldSetDimensions = widthMode == CSS_WIDTH_SET || heightMode == CSS_HEIGHT_SET;
 
       if(shouldSetDimensions && display != CSS_DISPLAY_INLINE)
         mStyleCallbacks.push_back(setDimensions);
@@ -989,12 +1107,10 @@ namespace ImVue {
 
     // positioning
     {
-      position = css_computed_position(style->styles[CSS_PSEUDO_ELEMENT_NONE]);
 
       switch(position) {
         case CSS_POSITION_FIXED:
         case CSS_POSITION_ABSOLUTE:
-          display = CSS_DISPLAY_BLOCK;
         case CSS_POSITION_RELATIVE:
           mStyleCallbacks.push_back(setPosition);
           mAutoSize = false;
@@ -1038,7 +1154,20 @@ namespace ImVue {
       mStyleCallbacks.push_back(setBorder);
     }
 
-    element->display = css_computed_display(style->styles[CSS_PSEUDO_ELEMENT_NONE], false);
+    // overflow
+    if(setOverflow(*this)) {
+      mStyleCallbacks.push_back(setOverflow);
+    }
+
+    // min size
+    if(setMinSize(*this)) {
+      mStyleCallbacks.push_back(setMinSize);
+    }
+
+    element->setDisplay(display);
+
+    // flex layout settings
+    updateFlexSettings();
     end();
 
     return true;
@@ -1052,17 +1181,21 @@ namespace ImVue {
     }
 
     ImGuiIO& io = ImGui::GetIO();
-    ImGuiWindow* window = GetCurrentWindowNoDefault();
+    window = GetCurrentWindowNoDefault();
     if(window){
       Element* parent = e->getParent();
-      while(parent && (parent->display == CSS_DISPLAY_INLINE || (parent->getFlags() & Element::PSEUDO_ELEMENT) != 0)) {
+      while(parent && (parent->display == CSS_DISPLAY_INLINE || (parent->isPseudoElement()) != 0)) {
         parent = parent->getParent();
       }
 
       if(parent && (parent->getFlags() & Element::WINDOW) == 0){
-        contentRegion = parent->getSize() - ImVec2(parent->padding[0] + parent->padding[2], parent->padding[1] + parent->padding[3]);
+        contentRegion = ImVec2(parent->contentWidth(), parent->contentHeight());
       } else {
-        contentRegion = ImGui::GetWindowSize() - ImGui::GetCursorStartPos() - window->Scroll - ImGui::GetStyle().WindowPadding;
+        contentRegion = window->Size -
+          ImGui::GetCursorStartPos() -
+          window->Scroll -
+          ImGui::GetStyle().WindowPadding -
+          window->ScrollbarSizes;
       }
     } else {
       contentRegion = io.DisplaySize;
@@ -1075,8 +1208,8 @@ namespace ImVue {
       mStyleCallbacks[i](*this);
     }
 
-    if(element->display == CSS_DISPLAY_BLOCK && mAutoSize) {
-      if(mWidthMode == CSS_WIDTH_AUTO) {
+    if(displayBlock && mAutoSize) {
+      if(widthMode == CSS_WIDTH_AUTO) {
         ImRect margins = element->getMarginsRect();
         element->size.x = contentRegion.x - margins.Max.x - margins.Min.x;
       }
@@ -1085,6 +1218,11 @@ namespace ImVue {
 
   void ComputedStyle::end()
   {
+    while(nClipRect > 0) {
+      window->DC.CursorMaxPos = ImMin(window->DC.CursorMaxPos, window->ClipRect.Max);
+      ImGui::PopClipRect();
+      nClipRect--;
+    }
     ImGui::PopStyleColor(nCol);
     ImGui::PopStyleVar(nStyle);
     if(fontScale) {
@@ -1097,6 +1235,15 @@ namespace ImVue {
     nStyle = 0;
     nFonts = 0;
     fontScale = 0;
+  }
+
+  ImVec2 ComputedStyle::localToGlobal(const ImVec2& pos)
+  {
+    if(window) {
+      return window->Pos - window->Scroll + pos;
+    }
+
+    return pos;
   }
 
   void ComputedStyle::destroy()
@@ -1279,15 +1426,180 @@ namespace ImVue {
     }
   }
 
+  void ComputedStyle::updateFlexSettings()
+  {
+    css_fixed value;
+    uint8_t status = css_computed_flex_grow(
+      style->styles[CSS_PSEUDO_ELEMENT_NONE],
+      &value
+    );
+
+    Element* parent = element->getParent(true);
+    if(parent && (parent->display == CSS_DISPLAY_FLEX || parent->display == CSS_DISPLAY_INLINE_FLEX)) {
+      memcpy(&flex, &parent->style()->flex, sizeof(FlexSettings));
+
+      if(status == CSS_FLEX_GROW_SET) {
+        flex.grow = FIXTOFLT(value);
+      }
+
+      status = css_computed_flex_grow(
+        style->styles[CSS_PSEUDO_ELEMENT_NONE],
+        &value
+      );
+
+      if(status == CSS_FLEX_SHRINK_SET) {
+        flex.shrink = FIXTOFLT(value);
+      }
+
+      status = css_computed_align_self(style->styles[CSS_PSEUDO_ELEMENT_NONE]);
+
+      switch(status) {
+        case CSS_ALIGN_SELF_STRETCH:
+          flex.align = FlexSettings::Stretch;
+          break;
+        case CSS_ALIGN_SELF_FLEX_START:
+          flex.align = FlexSettings::FlexStart;
+          break;
+        case CSS_ALIGN_SELF_FLEX_END:
+          flex.align = FlexSettings::FlexEnd;
+          break;
+        case CSS_ALIGN_SELF_CENTER:
+          flex.align = FlexSettings::Center;
+          break;
+        case CSS_ALIGN_SELF_BASELINE:
+          flex.align = FlexSettings::Baseline;
+          break;
+        case CSS_ALIGN_SELF_AUTO:
+          flex.align = FlexSettings::Auto;
+          break;
+      }
+
+      int32_t order = 0;
+      if(css_computed_order(
+        style->styles[CSS_PSEUDO_ELEMENT_NONE],
+        &order
+      ) == CSS_ORDER_SET) {
+        flex.order = order;
+      }
+
+      if(setFlexBasis(*this)) {
+        mStyleCallbacks.push_back(setFlexBasis);
+      }
+    }
+
+    // here goes flex container configuration
+    if(element->display != CSS_DISPLAY_FLEX && element->display != CSS_DISPLAY_INLINE_FLEX) {
+      return;
+    }
+
+    switch(css_computed_flex_direction(
+      style->styles[CSS_PSEUDO_ELEMENT_NONE]
+    )) {
+      case CSS_FLEX_DIRECTION_ROW:
+        flex.direction = FlexSettings::Row;
+        flex.axis = ParseUnitsAxis::X;
+        break;
+      case CSS_FLEX_DIRECTION_ROW_REVERSE:
+        flex.direction = FlexSettings::RowReverse;
+        flex.axis = ParseUnitsAxis::X;
+        break;
+      case CSS_FLEX_DIRECTION_COLUMN:
+        flex.direction = FlexSettings::Column;
+        flex.axis = ParseUnitsAxis::Y;
+        break;
+      case CSS_FLEX_DIRECTION_COLUMN_REVERSE:
+        flex.direction = FlexSettings::ColumnReverse;
+        flex.axis = ParseUnitsAxis::Y;
+        break;
+    }
+
+    switch(css_computed_flex_wrap(
+      style->styles[CSS_PSEUDO_ELEMENT_NONE])) {
+      case CSS_FLEX_WRAP_NOWRAP:
+        flex.wrap = FlexSettings::NoWrap;
+        break;
+      case CSS_FLEX_WRAP_WRAP:
+        flex.wrap = FlexSettings::Wrap;
+        break;
+      case CSS_FLEX_WRAP_WRAP_REVERSE:
+        flex.wrap = FlexSettings::WrapReverse;
+        break;
+    }
+
+    switch(css_computed_justify_content(
+      style->styles[CSS_PSEUDO_ELEMENT_NONE])) {
+      case CSS_JUSTIFY_CONTENT_FLEX_START:
+        flex.justifyContent = FlexSettings::FlexStart;
+        break;
+      case CSS_JUSTIFY_CONTENT_FLEX_END:
+        flex.justifyContent = FlexSettings::FlexEnd;
+        break;
+      case CSS_JUSTIFY_CONTENT_CENTER:
+        flex.justifyContent = FlexSettings::Center;
+        break;
+      case CSS_JUSTIFY_CONTENT_SPACE_BETWEEN:
+        flex.justifyContent = FlexSettings::SpaceBetween;
+        break;
+      case CSS_JUSTIFY_CONTENT_SPACE_AROUND:
+        flex.justifyContent = FlexSettings::SpaceAround;
+        break;
+      case CSS_JUSTIFY_CONTENT_SPACE_EVENLY:
+        flex.justifyContent = FlexSettings::SpaceEvenly;
+        break;
+    }
+
+    switch(css_computed_align_content(
+      style->styles[CSS_PSEUDO_ELEMENT_NONE])) {
+      case CSS_ALIGN_CONTENT_STRETCH:
+        flex.alignContent = FlexSettings::Stretch;
+        break;
+      case CSS_ALIGN_CONTENT_FLEX_START:
+        flex.alignContent = FlexSettings::FlexStart;
+        break;
+      case CSS_ALIGN_CONTENT_FLEX_END:
+        flex.alignContent = FlexSettings::FlexEnd;
+        break;
+      case CSS_ALIGN_CONTENT_CENTER:
+        flex.alignContent = FlexSettings::Center;
+        break;
+      case CSS_ALIGN_CONTENT_SPACE_BETWEEN:
+        flex.alignContent = FlexSettings::SpaceBetween;
+        break;
+      case CSS_ALIGN_CONTENT_SPACE_AROUND:
+        flex.alignContent = FlexSettings::SpaceAround;
+        break;
+      case CSS_ALIGN_CONTENT_SPACE_EVENLY:
+        flex.alignContent = FlexSettings::SpaceEvenly;
+        break;
+    }
+
+    switch(css_computed_align_items(
+      style->styles[CSS_PSEUDO_ELEMENT_NONE])) {
+      case CSS_ALIGN_ITEMS_STRETCH:
+        flex.alignItems = FlexSettings::Stretch;
+        break;
+      case CSS_ALIGN_ITEMS_FLEX_START:
+        flex.alignItems = FlexSettings::FlexStart;
+        break;
+      case CSS_ALIGN_ITEMS_FLEX_END:
+        flex.alignItems = FlexSettings::FlexEnd;
+        break;
+      case CSS_ALIGN_ITEMS_CENTER:
+        flex.alignItems = FlexSettings::Center;
+        break;
+      case CSS_ALIGN_ITEMS_BASELINE:
+        flex.alignItems = FlexSettings::Baseline;
+        break;
+    }
+  }
+
   const char* cssBase = "* {"
     "display: block;"
   "}\n"
   "html {"
-    "width: 100%;"
     "height: 100%;"
   "}"
   "body {"
-    "width: 100%;"
     "height: 100%;"
   "}\n"
   "h1, h2, h3, h4, h5, h6 {"
@@ -1306,12 +1618,12 @@ namespace ImVue {
   "picture, progress, q, ruby, s, samp, script, select, "
   "select, small, span, strong, sub, sup, svg, textarea, time, u, tt, var, wbr"
   // imgui items that should be displayed inline
-  ", menu, same-line, tab-item"
+  ", menu, same-line, tab-item, next-line"
   "{"
     "display: inline;"
   "}"
   // imgui items that are actually positioned absolute
-  "tooltip, popup-modal, indent, unindent, next-column {"
+  "tooltip, popup-modal, indent, unindent, next-column, same-line, tab-item {"
     "position: fixed;"
   "}";
 

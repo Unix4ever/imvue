@@ -1,0 +1,84 @@
+<style>
+  body {
+    padding: 0.4em;
+    font-size: 15px;
+    overflow: scroll;
+  }
+
+  window {
+    padding: 0;
+  }
+
+  body > *, collapsing-header > * {
+    margin: 0.3em;
+    padding: 0.3em;
+  }
+
+  collapsing-header.inputs > * {
+    margin-right: 5em;
+  }
+
+  collapsing-header {
+    padding: 0.4em;
+    display: block;
+  }
+
+  arrow-button {
+    display: inline-block;
+  }
+
+  plot-line {
+    padding: 0.5em;
+  }
+
+</style>
+<template>
+  <window name="main" style="position: absolute; top: -1px; left: -1px; bottom: -1px; right: -1px" :flags="ImGuiWindowFlags_NoMove + ImGuiWindowFlags_NoResize + ImGuiWindowFlags_NoBackground + ImGuiWindowFlags_NoTitleBar">
+    <body style="background-color: rgba(0, 0, 0, 0.7)">
+      <span>Built-in elements showcase</span>
+      <collapsing-header label="inputs" :flags="ImGuiTreeNodeFlags_SpanFullWidth" class="inputs">
+        <slider-angle v-rad="0.1">slider angle</slider-angle>
+        <input-int v="10">input int 1</input-int>
+        <input-int2 v="{1,2}">input int 2</input-int2>
+        <input-int3 v="{1,2,3}">input int 3</input-int3>
+        <input-double v="1.0">input double</input-double>
+        <drag-int v="10">drag int 1</drag-int>
+        <drag-int2 v="{1,2}">drag int 2</drag-int2>
+        <drag-int4 v="{1,2,3,4}">drag int 4</drag-int4>
+        <input-float v="10">input float 1</input-float>
+        <input-float2 v="{1,2}">input float 2</input-float2>
+        <input-float3 v="{1,2,3}">input float 3</input-float3>
+        <input-float4 v="{1,2,3,4}">input float 4</input-float4>
+        <input-text buf-size="1024">input text</input-text>
+        <input-text-multiline buf-size="4086" style="margin-right: 5em">Multiline text</input-text-multiline>
+      </collapsing-header>
+      <collapsing-header label="widgets" class="inputs">
+        <combo label="combo box" preview-value="select something">
+          <selectable>option 1</selectable>
+          <selectable>option 2</selectable>
+        </combo>
+        <drag-float-range2 v-current-min="-10" v-current-max="10" v-speed="0.1">input float 4</drag-float-range2>
+        <color-edit3 :col="{1, 1, 1}">color edit 3</color-edit3>
+        <color-edit4 :col="{1, 1, 1, 1}">color edit 4</color-edit4>
+        <radio-button v-on:click="self.option = 'option 1'" :active="self.option == 'option 1'">option 1</radio-button>
+        <radio-button v-on:click="self.option = 'option 2'" :active="self.option == 'option 2'">option 2</radio-button>
+        <radio-button v-on:click="self.option = 'option 3'" :active="self.option == 'option 3'">option 3</radio-button>
+        <checkbox>checkbox</checkbox>
+      </collapsing-header>
+      <collapsing-header label="plots">
+        <plot-lines values="{1,2,3,4,5,6}" values-count="5" graph-size="0, 200"/>
+        <plot-histogram values="{1,2,3,4,5,6}" values-count="5" graph-size="0, 200"/>
+      </collapsing-header>
+    </body>
+  </window>
+</template>
+
+<script>
+  return ImVue.new({
+    data = function()
+      return {
+        option = "option 2"
+      }
+    end
+  })
+</script>

@@ -28,7 +28,8 @@ namespace ImVue {
   class ContainerElement;
 
   struct Layout {
-
+    Layout();
+    virtual ~Layout() {}
     float topMargin;    // top margin max value
     float bottomMargin; // bottom margin max value
     float height;       // total line height
@@ -36,6 +37,7 @@ namespace ImVue {
     ImVec2 cursorStart;
     ImVec2 lineEnd;
     ImVec2 contentRegion;
+    ImVec2 max;
 
     Element* currentElement;
     ContainerElement* container;
@@ -50,7 +52,7 @@ namespace ImVue {
      *
      * @param element Next element
      */
-    void beginElement(Element* element);
+    virtual void beginElement(Element* element);
 
     /**
      * Finalizes element draw
@@ -59,15 +61,30 @@ namespace ImVue {
      *
      * @param element Element that was just drawn
      */
+    virtual void endElement(Element* element);
+
+    virtual void begin(ContainerElement* container);
+
+    virtual void newLine();
+
+    void end();
+  };
+
+  struct FlexLayout : public Layout {
+    void beginElement(Element* element);
+
     void endElement(Element* element);
-
-    void newLine();
-
-    void endLine();
 
     void begin(ContainerElement* container);
 
-    void end();
+    float slices;
+    float remainingLength;
+    float step;
+    private:
+      float* getLength(const ImVec2& input);
+  };
+
+  struct StaticLayout : public Layout {
   };
 }
 

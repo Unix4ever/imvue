@@ -336,7 +336,6 @@ namespace ImVue {
             mTextureManager->deleteTexture(mTextureID);
           }
 
-          std::cout << "Image is redrawn\n";
           mTextureID = mTextureManager->createTexture(mData, (int)drawnSize.x, (int)drawnSize.y);
         }
 

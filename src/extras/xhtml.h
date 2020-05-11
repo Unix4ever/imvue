@@ -56,6 +56,28 @@ namespace ImVue {
       }
   };
 
+  inline void addMaxPadding(Element* element)
+  {
+    ImVec2 max;
+    if(element->style()->widthMode != CSS_WIDTH_SET) {
+      max.x += element->padding[2];
+    }
+
+    if(element->style()->heightMode != CSS_HEIGHT_SET) {
+      max.y += element->padding[3];
+    }
+
+    ImVec2 size = ImGui::GetItemRectMax() - ImGui::GetItemRectMin() + max;
+    if(size.x < element->minSize.x) {
+      max.x += element->minSize.x - size.x;
+    }
+    if(size.y < element->minSize.y) {
+      max.y += element->minSize.y - size.y;
+    }
+
+    ImGui::SetCursorScreenPos(ImGui::GetItemRectMax() + max);
+  }
+
   /**
    * Base class for any html node
    */
@@ -96,7 +118,7 @@ namespace ImVue {
 
       void renderBody()
       {
-        bool useChild = size.y > 0;
+        bool useChild = mStyle.overflowX == CSS_OVERFLOW_SCROLL || mStyle.overflowY == CSS_OVERFLOW_SCROLL;
         bool drawContent = true;
         ImVec2 pos = ImGui::GetCursorScreenPos();
 
@@ -119,16 +141,23 @@ namespace ImVue {
             pad.Max.y = padding[3];
           }
         }
+        int flags = ImGuiWindowFlags_NavFlattened | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
+        if(mStyle.overflowX == CSS_OVERFLOW_SCROLL) {
+          flags |= ImGuiWindowFlags_HorizontalScrollbar;
+        }
+
+        if(mStyle.overflowY != CSS_OVERFLOW_SCROLL) {
+          flags |= ImGuiWindowFlags_NoScrollbar;
+        }
 
         if(useChild) {
           ImVec2 childSize(size.x > 0 ? size.x : mWidth, size.y);
-          /*
           childSize -= ImVec2(
               ImMax(mStyle.decoration.thickness[0], mStyle.decoration.thickness[2]),
               ImMax(mStyle.decoration.thickness[1], mStyle.decoration.thickness[3])
-          );*/
+          );
           ImGui::PushStyleColor(ImGuiCol_ChildBg, 0);
-          drawContent = ImGui::BeginChild(mID + index, childSize, false, ImGuiWindowFlags_NavFlattened | ImGuiWindowFlags_NoDecoration);
+          drawContent = ImGui::BeginChild(mID + index, childSize, false, flags);
           ImGui::PopStyleColor();
           ImGui::SetCursorPos(pad.Min);
         } else {
@@ -137,24 +166,39 @@ namespace ImVue {
         }
 
         if(drawContent) {
-          ContainerElement::renderBody();
+          if(mChildren.size() == 0 && mStyle.heightMode != CSS_HEIGHT_SET) {
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            ImVec2 s = size;
+            if(s.y == 0) {
+              s.y = ImGui::GetTextLineHeight();
+            }
+            ImRect bb(p, p + s);
+            ImGui::ItemSize(s);
+            ImGui::ItemAdd(bb, 0);
+          } else {
+            ContainerElement::renderBody();
+          }
         }
 
+        addMaxPadding(this);
         if(useChild) {
-          ImGui::SetCursorScreenPos(ImGui::GetItemRectMax() + pad.Max);
-          mWidth = ImGui::GetItemRectSize().x + pad.Min.x + pad.Max.x;
+          mWidth = ImGui::GetItemRectSize().x + pad.Min.x;
+          if(mStyle.overflowX != CSS_OVERFLOW_SCROLL) {
+            ImGui::GetCurrentWindowRead()->DC.CursorMaxPos.x = 0;
+          }
+
+          if(mStyle.overflowY != CSS_OVERFLOW_SCROLL) {
+            ImGui::GetCurrentWindowRead()->DC.CursorMaxPos.y = 0;
+          }
           ImGui::EndChild();
         } else {
-          ImGui::SetCursorScreenPos(ImGui::GetItemRectMax() + pad.Max);
           ImGui::EndGroup();
         }
       }
 
     private:
-
       ImU32 mID;
       float mWidth;
-
   };
 
   static int InputTextCallback(ImGuiInputTextCallbackData* data)
@@ -163,9 +207,9 @@ namespace ImVue {
     {
       // Resize string callback
       ImVector<char>* str = (ImVector<char>*)data->UserData;
-      IM_ASSERT(data->Buf == str->Data);
-      str->resize(data->BufTextLen);
-      data->Buf = str->Data;
+      IM_ASSERT(data->Buf == str->begin());
+      str->resize(data->BufSize);
+      data->Buf = str->begin();
     }
 
     return 0;
@@ -215,6 +259,7 @@ namespace ImVue {
         , mModel(0)
         , mValueUpdated(false)
         , mActivate(false)
+        , mID(0)
         , mType(TEXT)
       {
         mBuffer.resize(48);
@@ -307,7 +352,7 @@ namespace ImVue {
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
         ImGuiInputTextFlags flags = ImGuiInputTextFlags_CallbackResize;
         if(size.x != 0) {
-          ImGui::PushItemWidth(size.x - pad.Min.x - pad.Max.x);
+          ImGui::PushItemWidth(contentWidth());
         }
         int col[4] = {0};
         bool changed = false;
@@ -392,7 +437,7 @@ namespace ImVue {
         }
         ImGui::PopStyleColor(popColor);
         ImGui::PopStyleVar(2);
-        ImGui::SetCursorScreenPos(ImGui::GetItemRectMax() + pad.Max);
+        addMaxPadding(this);
         ImGui::EndGroup();
 
         if(ImGui::IsItemClicked(0)) {
@@ -439,6 +484,9 @@ namespace ImVue {
         if(mType == TEXT || mType == PASSWORD) {
           mFlags ^= Element::BUTTON;
         }
+
+        if(type)
+          ImGui::MemFree(type);
       }
 
       void setValue(char* value)
@@ -457,6 +505,7 @@ namespace ImVue {
         }
 
         mValue = ImStrdup(value);
+        ImGui::MemFree(value);
         mValueUpdated = true;
       }
 
@@ -476,6 +525,9 @@ namespace ImVue {
           invalidateFlags(Element::MODEL);
           mModel = ImStrdup(key);
         }
+
+        if(key)
+          ImGui::MemFree(key);
       }
 
       void setChecked(bool value)
@@ -503,30 +555,31 @@ namespace ImVue {
         if(!mModel || (mFlags & BUTTON))
           return;
 
-        Object object = (*mScriptState)[mModel];
+        ScriptState& scriptState = *mScriptState;
+        Object object = scriptState[mModel];
 
         if(write) {
           switch(mType) {
             case PASSWORD:
             case TEXT:
-              (*mScriptState)[mModel] = mBuffer.Data;
+              scriptState[mModel] = mBuffer.Data;
               break;
             case COLOR:
-              (*mScriptState)[mModel] = ImGui::ColorConvertFloat4ToU32(mColor);
+              scriptState[mModel] = ImGui::ColorConvertFloat4ToU32(mColor);
               break;
             case CHECKBOX:
               if(object.type() == ObjectType::USERDATA) {
                 updateArray(object);
               } else {
-                (*mScriptState)[mModel] = hasState(CHECKED);
+                scriptState[mModel] = hasState(CHECKED);
               }
               break;
             case RADIO:
-              (*mScriptState)[mModel] = mValue ? mValue : placeholder;
+              scriptState[mModel] = mValue ? mValue : placeholder;
               break;
             case NUMBER:
             case RANGE:
-              (*mScriptState)[mModel] = mSliderValue;
+              scriptState[mModel] = mSliderValue;
             default:
               break;
           }

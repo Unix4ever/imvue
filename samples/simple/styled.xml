@@ -25,10 +25,6 @@
     padding: 5px;
   }
 
-  span {
-    margin-right: 0.2rem;
-  }
-
   div:not(:last-of-type) {
     margin-bottom: 0.5rem;
   }
@@ -220,7 +216,7 @@
           <span class="icon active"></span>
         </div>
         <div class="icon heart" v-on:click="self.toggle = not self.toggle">{{if self.toggle then return self.heartActive else return self.heartInactive end}}</div>
-        <div class="btn">APPROVED<span class="icon"></span></div>
+        <div class="btn test__">APPROVED<span class="icon test__"></span></div>
         <h3>Forms</h3>
         <div class="form">
           <label>Styled input example:</label>
@@ -254,10 +250,10 @@
           <input style="margin-right: 0.2rem; margin-top: 0.2rem; display: block" type="checkbox" value="third checkbox" v-model="arr"/>
 
           <label>Choices:</label>
-          <span style="display: inline-block; padding: 5px; background-color: #FFCC00; color: black; border-radius: 5px" v-for="c in self.arr">{{c}}</span>
+          <span style="display: inline-block; padding: 5px; background-color: #FFCC00; color: black; border-radius: 5px" v-for="(index, c) in self.arr">{{index}}:{{c}}</span>
           <span v-if="#self.arr == 0">No choices yet</span>
         </div>
-        <span class="icon" v-if="self.checked" style="position: absolute; right: 0px; bottom: 0px; color: #000000; background-color: #FFCC00; display: inline; padding: 0.3em; border-radius: 0.2em"></span>
+        <span class="icon" v-if="self.checked" style="position: fixed; right: 0px; bottom: 0px; color: #000000; background-color: #FFCC00; display: inline; padding: 0.3em; border-radius: 0.2em"></span>
       </body>
     </html>
   </window>
